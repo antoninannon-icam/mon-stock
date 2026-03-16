@@ -1346,17 +1346,33 @@
     // MODE SCAN COURSES (Grocery)
     // ============================================================
     function startGroceryMode() {
-        document.getElementById('groceryModal').style.display = 'flex';
-        groceryBasket = [];
-        renderGroceryBasket();
+    document.getElementById('groceryModal').style.display = 'flex';
+    groceryBasket = [];
+    renderGroceryBasket();
+    
+    setTimeout(() => {
         html5QrcodeScanner = new Html5Qrcode("reader-grocery");
-        html5QrcodeScanner.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 150 } }, (decodedText) => {
-            if (scanCooldown) return;
-            scanCooldown = true;
-            setTimeout(() => { scanCooldown = false; }, 1500);
-            handleGroceryScan(decodedText);
-        });
-    }
+        html5QrcodeScanner.start(
+            { facingMode: "environment" },
+            {
+                fps: 15,
+                qrbox: { width: 280, height: 110 },
+                aspectRatio: 1.7,
+                videoConstraints: {
+                    facingMode: { exact: "environment" },
+                    focusMode: "continuous",
+                    advanced: [{ focusMode: "continuous" }]
+                }
+            },
+            (decodedText) => {
+                if (scanCooldown) return;
+                scanCooldown = true;
+                setTimeout(() => { scanCooldown = false; }, 1500);
+                handleGroceryScan(decodedText);
+            }
+        );
+    }, 500);
+}
 
     function handleGroceryScan(code) {
         const existing = groceryBasket.find(i => i.barcode === code);
