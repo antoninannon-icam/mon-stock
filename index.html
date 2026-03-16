@@ -1,0 +1,1876 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mon Stock Pop - V10</title>
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary: #6C63FF; --primary-light: #ECEBFF;
+            --accent: #ED8936; --accent-dark: #DD6B20;
+            --bg-body: #F7F9FC; --card-bg: #FFFFFF;
+            --text-main: #2D3748; --text-muted: #A0AEC0;
+            --success: #48BB78; --danger: #F56565; --warning: #ED8936;
+            --radius: 20px; --shadow: 0 10px 30px rgba(0,0,0,0.08);
+        }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { font-family: 'Poppins', sans-serif; background: var(--bg-body); color: var(--text-main); margin: 0; padding: 20px; padding-bottom: 100px; }
+
+        /* HEADER */
+        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
+        h1 { margin: 0; font-size: 26px; font-weight: 800; color: var(--primary); letter-spacing: -0.5px; }
+        .header-btns { display: flex; gap: 10px; }
+
+        /* BUTTONS */
+        .btn { border: none; border-radius: 50px; padding: 12px 20px; font-weight: 600; font-size: 14px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: transform 0.1s; white-space: nowrap; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .btn:active { transform: scale(0.96); }
+        .btn-primary { background: linear-gradient(135deg, #6C63FF 0%, #5A52D5 100%); color: white; box-shadow: 0 4px 15px rgba(108, 99, 255, 0.4); }
+        .btn-accent { background: linear-gradient(135deg, #ED8936 0%, #DD6B20 100%); color: white; box-shadow: 0 4px 15px rgba(237, 137, 54, 0.4); }
+        .btn-secondary { background: white; color: var(--text-main); border: 1px solid #E2E8F0; }
+        .btn-ghost { background: transparent; color: var(--text-muted); box-shadow: none; }
+        .btn-danger-ghost { background: transparent; color: var(--danger); font-size: 12px; box-shadow: none; padding: 5px; border: 1px solid #FED7D7; border-radius: 10px; margin-top: 10px;}
+        .btn-edit-ghost { background: transparent; color: var(--primary); font-size: 12px; box-shadow: none; padding: 5px; border: 1px solid var(--primary-light); border-radius: 10px; margin-top: 10px; margin-right: 10px;}
+        .btn-icon-only { width: 40px; height: 40px; border-radius: 50%; padding: 0; font-size: 18px; }
+
+        /* CONTROLS */
+        .controls-bar { display: flex; gap: 10px; margin-bottom: 25px; overflow-x: auto; padding-bottom: 5px; }
+        .inp-pop { width: 100%; padding: 14px 20px; border: none; border-radius: var(--radius); background: white; box-shadow: var(--shadow); font-family: inherit; font-size: 15px; outline: none; transition: 0.2s; min-width: 120px; }
+        select.inp-pop { width: auto; font-weight: 600; color: var(--primary); }
+
+        /* TREE VIEW STYLES */
+        .tree-group { margin-bottom: 15px; border-radius: 16px; overflow: hidden; background: white; box-shadow: var(--shadow); transition: all 0.2s; }
+        .tree-cat-header { padding: 15px 20px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-weight: 700; font-size: 15px; color: #2D3748; user-select: none; transition: background 0.2s; }
+        .tree-cat-header:active { opacity: 0.8; background: #F7F9FC; }
+        .tree-cat-info { display: flex; align-items: center; gap: 10px; }
+        .tree-cat-stats { font-size: 11px; opacity: 0.6; font-weight: 500; margin-top: 2px; }
+        .arrow-icon { transition: transform 0.2s; font-size: 12px; opacity: 0.4; }
+        .tree-cat-content { display: none; background: #FAFAFA; padding: 10px 10px 15px 10px; border-top: 1px solid #F0F0F0; }
+        .tree-cat-content.show { display: block; animation: slideDown 0.2s; }
+        .tree-group.expanded .arrow-icon { transform: rotate(180deg); }
+
+        .tree-sub-group { margin-bottom: 8px; border: 1px solid #EDF2F7; border-radius: 12px; background: white; overflow: hidden; }
+        .tree-sub-header { padding: 10px 15px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-weight: 600; color: #4A5568; background: #fff; user-select: none; }
+        .tree-sub-header:hover { background: #F7F9FC; }
+        .tree-sub-content { display: none; padding: 10px; border-top: 1px solid #EDF2F7; background: #F7F9FC; }
+        .tree-sub-content.show { display: block; }
+        .sub-arrow { font-size: 10px; margin-right: 6px; display: inline-block; transition: transform 0.2s; opacity: 0.5; }
+        .tree-sub-group.expanded .sub-arrow { transform: rotate(90deg); }
+
+        /* CARDS */
+        .card-in-tree { margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.03) !important; border: 1px solid #E2E8F0; border-radius: 12px; background: white; }
+        .card-in-tree:last-child { margin-bottom: 0; }
+        .card-compact { padding: 12px 15px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; }
+        .card-expanded { padding: 0 15px 15px 15px; background: #fff; border-top: 1px solid #F0F0F0; animation: slideDown 0.2s; }
+        @keyframes slideDown { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+
+        .prod-info { flex: 1; min-width: 0; padding-right: 10px; }
+        .prod-name { font-weight: 600; font-size: 14px; margin-bottom: 2px; color: var(--text-main); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+        .prod-brand { font-size: 12px; color: var(--text-muted); }
+        .prod-stats { display: flex; align-items: center; }
+        .qty-badge { background: var(--primary-light); color: var(--primary); font-weight: 700; padding: 4px 10px; border-radius: 30px; font-size: 12px; min-width: 30px; text-align: center; }
+        .qty-badge.empty { background: #FED7D7; color: var(--danger); }
+        .open-badge { font-size: 9px; font-weight: 800; text-transform: uppercase; color: var(--accent-dark); background: #FEEBC8; padding: 2px 6px; border-radius: 6px; margin-right: 5px; }
+
+        /* COMMON */
+        .section-title { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); font-weight: 800; margin: 15px 0 8px 0; }
+        .manage-stock-row { display: flex; justify-content: space-between; align-items: center; background: #F7F9FC; padding: 10px; border-radius: 10px; border: 1px solid #EDF2F7; }
+        .date-display { font-size: 11px; color: #718096; }
+        .stepper { display: flex; align-items: center; gap: 6px; }
+        .step-btn { width: 30px; height: 30px; border-radius: 8px; border: 1px solid #E2E8F0; background: white; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+        .step-btn.main-action { background: var(--primary); color: white; border: none; width: auto; padding: 0 12px; font-size: 12px; border-radius: 50px; }
+
+        .open-item-card { background: #F7F9FC; padding: 10px; border-radius: 10px; border: 1px solid #EDF2F7; margin-bottom: 8px; }
+        .open-header { display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 8px; color: #718096; font-weight: 600; }
+        .segment-control { display: flex; background: #E2E8F0; padding: 3px; border-radius: 8px; width: 100%; }
+        .seg-opt { flex: 1; padding: 6px 0; border: none; background: transparent; border-radius: 6px; font-size: 10px; font-weight: 600; color: #718096; cursor: pointer; }
+        .seg-opt.active { background: white; color: var(--primary); box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .seg-opt.trash.active { color: var(--danger); }
+
+        .dlc-pill { display: inline-flex; align-items: center; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; white-space: nowrap; }
+        .dlc-pill.ok { background: #C6F6D5; color: #22543D; }
+        .dlc-pill.warn { background: #FEEBC8; color: #744210; }
+        .dlc-pill.bad { background: #FED7D7; color: #822727; }
+
+        /* MODALS & MISC */
+        .modal { display: none; position: fixed; z-index: 2000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); backdrop-filter: blur(8px); align-items: center; justify-content: center; }
+        .modal-content { background: white; width: 92%; max-width: 480px; border-radius: 24px; max-height: 92vh; display: flex; flex-direction: column; overflow: hidden; animation: slideUpModal 0.3s forwards; }
+        @keyframes slideUpModal { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .modal-header { padding: 15px 20px; border-bottom: 1px solid #F7F9FC; display: flex; justify-content: space-between; align-items: center; }
+        .modal-title { font-size: 18px; font-weight: 700; margin: 0; }
+        .modal-body { padding: 20px; overflow-y: auto; flex: 1; }
+        .modal-footer { padding: 15px 20px; border-top: 1px solid #F7F9FC; display: flex; gap: 10px; }
+        .modal-close { background: none; border: none; font-size: 24px; cursor: pointer; color: var(--text-muted); line-height: 1; padding: 0; }
+        
+        .form-label { display: block; font-size: 11px; font-weight: 700; color: var(--text-muted); margin-bottom: 5px; text-transform: uppercase; }
+        .form-input { width: 100%; padding: 12px; border-radius: 12px; border: 2px solid #EDF2F7; font-family: inherit; font-size: 14px; background: #F9FAFC; outline:none; }
+        .form-input:focus { border-color: var(--primary); background: white; }
+        .form-group { margin-bottom: 15px; }
+
+        .settings-list-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #F7F9FC; }
+        .del-btn-small { background: #FED7D7; color: #C53030; border: none; width: 24px; height: 24px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        
+        #scanner-wrapper { display: none; border-radius: 16px; overflow: hidden; background: #000; min-height: 200px; margin-bottom: 15px; }
+        #toast { visibility: hidden; min-width: 200px; background-color: #2D3748; color: #fff; text-align: center; border-radius: 50px; padding: 12px 24px; position: fixed; z-index: 3000; left: 50%; bottom: 30px; transform: translateX(-50%); opacity: 0; transition: 0.3s; font-weight: 600; }
+        #toast.show { visibility: visible; opacity: 1; bottom: 40px; }
+        #toast.success { background: var(--success); }
+        #toast.error { background: var(--danger); }
+        
+        .inline-picker { background: #EDF2F7; padding: 10px; border-radius: 12px; margin-top: 10px; display: none; }
+        .picker-option { padding: 10px; margin-bottom: 5px; background: white; border-radius: 8px; font-size: 12px; display: flex; justify-content: space-between; cursor: pointer; }
+        
+        .dlc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; display: none; }
+        .dlc-item { background: #F0F4F8; padding: 6px; border-radius: 8px; }
+        .dlc-item input { width: 100%; border: 1px solid #CBD5E0; border-radius: 4px; padding: 4px; font-size: 11px; }
+        
+        /* LIST ITEM */
+        .list-item { display: flex; flex-direction: column; background: #fff; border: 1px solid #EDF2F7; padding: 10px; border-radius: 12px; margin-bottom: 8px; }
+        .list-item-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+        .list-btn-del { width: 24px; height: 24px; border-radius: 50%; background: #FED7D7; color: #C53030; border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+
+        /* SIDEBAR */
+        .sidebar-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 2998; opacity: 0; visibility: hidden; transition: all 0.3s; backdrop-filter: blur(2px); }
+        .sidebar-overlay.active { opacity: 1; visibility: visible; }
+        .sidebar { position: fixed; top: 0; left: 0; width: 280px; height: 100%; background: linear-gradient(180deg, #4c51bf 0%, #6C63FF 100%); z-index: 2999; transform: translateX(-100%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); padding: 30px 20px; color: white; box-shadow: 4px 0 15px rgba(0,0,0,0.1); display: flex; flex-direction: column; }
+        .sidebar.active { transform: translateX(0); }
+        .sidebar-title { font-size: 24px; font-weight: 700; margin-bottom: 40px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 20px; }
+        .nav-link { display: flex; align-items: center; gap: 15px; padding: 15px; margin-bottom: 8px; color: rgba(255,255,255,0.7); text-decoration: none; font-size: 16px; border-radius: 12px; transition: all 0.2s; cursor: pointer; }
+        .nav-link:hover { background: rgba(255,255,255,0.1); color: white; }
+        .nav-link.active { background: rgba(255,255,255,0.2); color: white; font-weight: 600; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .nav-icon { font-size: 20px; }
+        .menu-btn { font-size: 26px; background: none; border: none; cursor: pointer; color: var(--text-main); padding: 5px 10px 5px 0; }
+        
+        /* MINI BUTTONS ON CARD */
+        .btn-mini-action { width: 28px; height: 28px; border-radius: 50%; border: 1px solid #E2E8F0; background: rgba(255,255,255,0.8); display: flex; align-items: center; justify-content: center; margin-right: 6px; cursor: pointer; font-size: 13px; transition: all 0.2s; }
+        .btn-mini-action:hover { transform: scale(1.1); background: white; }
+        .btn-mini-edit { color: var(--text-muted); }
+        .btn-mini-edit:hover { border-color: var(--primary); color: var(--primary); }
+        .btn-mini-cart { color: var(--primary); border-color: var(--primary-light); }
+        .btn-mini-cart:hover { background: var(--primary); color: white; border-color: var(--primary); }
+
+        /* VIEW SECTIONS */
+        .view-section { display: none; animation: fadeIn 0.3s; }
+        .view-section.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* SHOPPING LIST */
+        .shop-item { background: white; padding: 15px; border-radius: 16px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 10px rgba(0,0,0,0.03); border: 1px solid #EDF2F7; }
+        .shop-check-btn { width: 24px; height: 24px; border: 2px solid #CBD5E0; border-radius: 6px; margin-right: 15px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: transparent; }
+        .shop-item.checked { opacity: 0.5; }
+        .shop-item.checked .shop-check-btn { background: var(--success); border-color: var(--success); color: white; }
+        .shop-qty-box { font-size: 16px; font-weight: 800; color: var(--primary); background: var(--primary-light); padding: 5px 12px; border-radius: 10px; }
+        .btn-success { background: linear-gradient(135deg, #48BB78 0%, #38A169 100%); color: white; box-shadow: 0 4px 15px rgba(72, 187, 120, 0.4); }
+        .btn-success:active { transform: scale(0.96); }
+
+        /* SYNC STATUS */
+        #sync-status { position: fixed; bottom: 20px; right: 20px; z-index: 2500; display: flex; align-items: center; gap: 6px; background: white; border-radius: 50px; padding: 6px 14px; font-size: 11px; font-weight: 600; box-shadow: 0 4px 15px rgba(0,0,0,0.12); transition: all 0.3s; opacity: 0; pointer-events: none; }
+        #sync-status.show { opacity: 1; }
+        #sync-status.syncing { color: var(--warning); }
+        #sync-status.synced  { color: var(--success); }
+        #sync-status.error   { color: var(--danger); }
+        #sync-status.offline { color: var(--text-muted); }
+        .sync-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+        .sync-dot.pulse { animation: syncpulse 1s ease-in-out infinite; }
+        @keyframes syncpulse { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
+
+        /* FOYER MODAL */
+        #foyerModal .modal-content { max-width: 360px; }
+        .foyer-code-display { background: var(--primary-light); color: var(--primary); font-size: 22px; font-weight: 800; letter-spacing: 4px; text-align: center; padding: 18px; border-radius: 16px; margin: 15px 0; cursor: pointer; user-select: all; }
+        .foyer-code-display:active { opacity: 0.7; }
+
+        /* SWITCH TOGGLE */
+        .switch-wrapper { display: flex; align-items: center; gap: 10px; cursor: pointer; margin-bottom: 10px; }
+        .switch-input { display: none; }
+        .switch-label { font-size: 13px; font-weight: 600; color: var(--text-main); }
+        .switch-input + .switch-label::before { content: ''; display: inline-block; width: 36px; height: 20px; background: #CBD5E0; border-radius: 10px; margin-right: 8px; transition: background 0.2s; vertical-align: middle; }
+        .switch-input:checked + .switch-label::before { background: var(--primary); }
+
+        /* DASHBOARD ALERTES */
+        .alert-banner { background: linear-gradient(135deg, #FFF5F5 0%, #FED7D7 100%); border: 1px solid #FEB2B2; border-radius: 16px; padding: 15px 20px; margin-bottom: 20px; }
+        .alert-banner-title { font-size: 13px; font-weight: 700; color: #C53030; margin-bottom: 8px; }
+        .alert-item { font-size: 12px; color: #742A2A; padding: 4px 0; display: flex; justify-content: space-between; align-items: center; }
+        .alert-item-name { font-weight: 600; flex: 1; }
+        .alert-item-badge { font-size: 10px; background: #FC8181; color: white; padding: 2px 8px; border-radius: 20px; }
+        .alert-warn-banner { background: linear-gradient(135deg, #FFFAF0 0%, #FEEBC8 100%); border: 1px solid #F6AD55; }
+        .alert-warn-banner .alert-banner-title { color: #C05621; }
+        .alert-warn-banner .alert-item { color: #7B341E; }
+        .alert-warn-banner .alert-item-badge { background: #ED8936; }
+
+        /* CUSTOM CONFIRM MODAL */
+        #confirmModal { z-index: 4000; }
+        #confirmModal .modal-content { max-width: 340px; }
+        #confirmModal .modal-title { font-size: 16px; }
+
+        /* CUSTOM PROMPT MODAL */
+        #promptModal { z-index: 4000; }
+        #promptModal .modal-content { max-width: 340px; }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar-overlay" onclick="toggleSidebar()"></div>
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-title"><span>📦</span> Mon Stock</div>
+        <div class="nav-link active" onclick="switchView('stock')"><span class="nav-icon">🏠</span> Mon Stock</div>
+        <div class="nav-link" onclick="switchView('shopping')"><span class="nav-icon">🛒</span> Liste de courses</div>
+        <div class="nav-link" onclick="switchView('dashboard')"><span class="nav-icon">📊</span> Alertes</div>
+        <div style="margin-top:auto; display:flex; flex-direction:column; gap:5px;">
+            <div class="nav-link" style="color: rgba(255,255,255,0.8);" onclick="openFoyerModal(); toggleSidebar();"><span class="nav-icon">🔗</span> Code Foyer</div>
+            <div class="nav-link" style="color: rgba(255,255,255,0.6);" onclick="exportData()"><span class="nav-icon">💾</span> Exporter</div>
+            <div class="nav-link" style="color: rgba(255,255,255,0.6);" onclick="document.getElementById('import-input').click(); toggleSidebar();"><span class="nav-icon">📂</span> Importer</div>
+            <div class="nav-link" style="color: rgba(255,255,255,0.6);" onclick="openSettings(); toggleSidebar();"><span class="nav-icon">⚙️</span> Réglages</div>
+        </div>
+        <input type="file" id="import-input" accept=".json" style="display:none" onchange="importData(event)">
+    </div>
+
+    <header>
+        <div style="display:flex; align-items:center;">
+            <button class="menu-btn" onclick="toggleSidebar()">☰</button>
+            <h1>Mon Stock</h1>
+        </div>
+        <div class="header-btns">
+            <button class="btn btn-primary" onclick="openAddModal()">+ Ajouter</button>
+            <button class="btn btn-accent" onclick="startGroceryMode()">Scan 🛒</button>
+        </div>
+    </header>
+
+    <div id="view-stock" class="view-section active">
+        <div id="alert-dashboard-mini"></div>
+        <div class="controls-bar">
+            <input type="text" id="inp-search" class="inp-pop" placeholder="🔍 Rechercher..." oninput="render()">
+            <select id="filter-cat" class="inp-pop" onchange="render()" style="width:auto;"></select>
+            <select id="sort-select" class="inp-pop" onchange="render()">
+                <option value="name">A-Z</option>
+                <option value="dlc">DLC</option>
+                <option value="stock">Stock</option>
+            </select>
+        </div>
+        <div id="product-list"></div>
+    </div>
+
+    <div id="view-shopping" class="view-section">
+        <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:15px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <h2 style="margin:0; font-size:20px; color:var(--text-main);">Ma Liste 🛒</h2>
+                <button class="btn btn-danger-ghost" onclick="clearShoppingList()">Tout vider</button>
+            </div>
+            <button class="btn btn-success" style="width:100%;" onclick="openValidateShopModal()">✅ Ajouter la sélection au stock</button>
+        </div>
+        <div id="shopping-list-container"></div>
+    </div>
+
+    <div id="view-dashboard" class="view-section">
+        <h2 style="margin:0 0 20px; font-size:20px; color:var(--text-main);">Tableau de bord 📊</h2>
+        <div id="dashboard-content"></div>
+    </div>
+
+    <div id="toast">Notification</div>
+    <div id="sync-status"><span class="sync-dot"></span><span id="sync-label">Sync</span></div>
+
+    <!-- MODAL FOYER -->
+    <div id="foyerModal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <div class="modal-header"><h2 class="modal-title">🏠 Code Foyer</h2></div>
+            <div class="modal-body">
+                <p style="font-size:13px; color:#718096; margin-bottom:5px;">Ton code foyer unique. Partage-le à ta famille pour synchroniser le stock sur tous les appareils.</p>
+                <div class="foyer-code-display" id="foyer-code-display" onclick="copyFoyerCode()">——</div>
+                <p style="font-size:11px; color:#A0AEC0; text-align:center; margin-bottom:20px;">Appuie pour copier</p>
+                <div style="border-top:1px solid #F0F0F0; padding-top:15px;">
+                    <p style="font-size:12px; font-weight:700; color:var(--text-muted); margin-bottom:8px;">REJOINDRE UN AUTRE FOYER</p>
+                    <div style="display:flex; gap:8px;">
+                        <input type="text" id="inp-foyer-join" class="form-input" placeholder="Code à 8 lettres" style="text-transform:uppercase; letter-spacing:2px;">
+                        <button class="btn btn-primary" onclick="joinFoyer()" style="white-space:nowrap;">Rejoindre</button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer" style="justify-content:flex-end;">
+                <button class="btn btn-ghost" onclick="document.getElementById('foyerModal').style.display='none'">Fermer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CUSTOM CONFIRM MODAL -->
+    <div id="confirmModal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <div class="modal-header"><h2 class="modal-title" id="confirm-title">Confirmer</h2></div>
+            <div class="modal-body"><p id="confirm-message" style="margin:0; font-size:14px; color:#718096;"></p></div>
+            <div class="modal-footer" style="justify-content:flex-end;">
+                <button class="btn btn-ghost" id="confirm-cancel">Annuler</button>
+                <button class="btn btn-primary" id="confirm-ok">Confirmer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CUSTOM PROMPT MODAL -->
+    <div id="promptModal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <div class="modal-header"><h2 class="modal-title" id="prompt-title">Saisir</h2></div>
+            <div class="modal-body">
+                <div class="form-group"><input type="text" class="form-input" id="prompt-input" placeholder=""></div>
+                <div class="form-group" id="prompt-field2-wrap" style="display:none;"><input type="text" class="form-input" id="prompt-input2" placeholder=""></div>
+            </div>
+            <div class="modal-footer" style="justify-content:flex-end;">
+                <button class="btn btn-ghost" id="prompt-cancel">Annuler</button>
+                <button class="btn btn-primary" id="prompt-ok">Valider</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL AJOUT LISTE COURSES -->
+    <div id="modal-shop-add" class="modal">
+        <div class="modal-content">
+            <div class="modal-header"><h2 class="modal-title">Ajouter aux courses</h2><button class="modal-close" onclick="closeShopModal()">×</button></div>
+            <div class="modal-body" style="text-align:center;">
+                <p id="shop-add-name" style="color:var(--primary); font-weight:600; font-size:18px; margin-bottom:20px;"></p>
+                <label class="form-label" style="text-align:center;">Quantité à acheter</label>
+                <div style="display:flex; align-items:center; justify-content:center; gap:20px; margin: 20px 0;">
+                    <button class="step-btn" style="width:40px; height:40px; font-size:20px;" onclick="adjustShopQty(-1)">−</button>
+                    <span id="shop-add-qty" style="font-size:30px; font-weight:800; width:60px;">1</span>
+                    <button class="step-btn" style="width:40px; height:40px; font-size:20px;" onclick="adjustShopQty(1)">+</button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-ghost" onclick="closeShopModal()">Annuler</button>
+                <button class="btn btn-primary" style="flex:1" onclick="confirmAddToShop()">Ajouter à la liste</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL PARAMETRES -->
+    <div id="settingsModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header"><h2 class="modal-title">Paramètres</h2><button class="modal-close" onclick="document.getElementById('settingsModal').style.display='none'">×</button></div>
+            <div class="modal-body">
+                <div class="section-title">Mes Catégories</div>
+                <div style="background:#F7F9FC; border-radius:14px; overflow:hidden; margin-bottom:20px;">
+                    <div id="settings-cat-list"></div>
+                    <button class="btn btn-ghost" style="width:100%; color:var(--primary);" onclick="createNewCategory()">+ Nouvelle catégorie</button>
+                </div>
+                <div class="section-title">Mes Sous-Catégories</div>
+                <div style="background:#F7F9FC; border-radius:14px; overflow:hidden;">
+                    <div id="settings-subcat-list"></div>
+                    <button class="btn btn-ghost" style="width:100%; color:var(--primary);" onclick="createNewSubCategory()">+ Nouvelle sous-catégorie</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL AJOUT ARTICLE -->
+    <div id="addModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header"><h2 class="modal-title" id="modal-title">Ajouter un article</h2><button class="modal-close" onclick="closeModal()">×</button></div>
+            <div class="modal-body">
+                <div id="view-form">
+                    <div id="scanner-wrapper"><div id="reader"></div></div>
+                    <div id="scan-result-badge"></div>
+                    <div style="display:flex; gap:10px; margin-bottom:20px;">
+                        <button id="btn-scan" class="btn btn-secondary" style="flex:1; background:#000; color:white; border:none;" onclick="startScanner()">📷 Scanner</button>
+                    </div>
+                    <div class="form-group"><label class="form-label">Code Barre</label><input type="text" class="form-input" id="inp-barcode" placeholder="Ex: 301762042..."></div>
+                    <div class="form-group"><label class="form-label">Nom du produit</label><input type="text" class="form-input" id="inp-name" placeholder="Ex: Riz Basmati"></div>
+                    <div style="display:flex; gap:12px;">
+                        <div class="form-group" style="flex:1"><label class="form-label">Catégorie</label><select id="inp-category" class="form-input"></select></div>
+                        <div class="form-group" style="flex:1"><label class="form-label">Sous-Catégorie</label><select id="inp-subcategory" class="form-input"></select></div>
+                    </div>
+                    <div style="display:flex; gap:12px;">
+                        <div class="form-group" style="flex:1"><label class="form-label">Marque</label><input type="text" class="form-input" id="inp-brand" placeholder="Ex: Lustucru"></div>
+                        <div class="form-group" style="width:80px"><label class="form-label">Qté</label><input type="number" class="form-input" id="inp-create-qty" value="1" min="1" style="text-align:center" oninput="updateDatesList('create')"></div>
+                    </div>
+                    <label class="switch-wrapper"><input type="checkbox" class="switch-input" id="chk-create-dates" onchange="toggleDates('create')"><span class="switch-label">Gérer les dates (DLC) ?</span></label>
+                    <div id="list-dates-create" class="dlc-grid"></div>
+                </div>
+                <div id="view-recap" style="display:none;">
+                    <p style="font-size:13px; color:#718096; margin-bottom:15px; text-align:center;">Vérifiez vos articles avant de les ranger.</p>
+                    <div id="recap-container"></div>
+                </div>
+            </div>
+            <div class="modal-footer" id="modal-footer-actions"></div>
+        </div>
+    </div>
+
+    <!-- MODAL EDITION PRODUIT -->
+    <div id="editProductModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header"><h2 class="modal-title">Modifier Fiche</h2><button class="modal-close" onclick="document.getElementById('editProductModal').style.display='none'">×</button></div>
+            <div class="modal-body">
+                <div class="form-group"><label class="form-label">Nom</label><input type="text" class="form-input" id="edit-name"></div>
+                <div class="form-group"><label class="form-label">Marque</label><input type="text" class="form-input" id="edit-brand"></div>
+                <div class="form-group"><label class="form-label">Catégorie</label><select id="edit-category" class="form-input"></select></div>
+                <div class="form-group"><label class="form-label">Sous-Catégorie</label><select id="edit-subcategory" class="form-input"></select></div>
+            </div>
+            <div class="modal-footer"><button class="btn btn-ghost" onclick="document.getElementById('editProductModal').style.display='none'">Annuler</button><button class="btn btn-primary" onclick="saveEditedProduct()">Sauvegarder</button></div>
+        </div>
+    </div>
+
+    <!-- MODAL SCAN COURSES -->
+    <div id="groceryModal" class="modal">
+        <div class="modal-content" style="height: 100%;">
+            <div class="modal-header"><h2 class="modal-title">🛒 Mode Scan Courses</h2><button class="modal-close" onclick="closeGroceryModal()">×</button></div>
+            <div class="modal-body">
+                <div id="scanner-wrapper-grocery" style="min-height:200px; background:black; border-radius:16px; overflow:hidden; margin-bottom:15px;"><div id="reader-grocery"></div></div>
+                <div id="scan-status" style="text-align:center; font-size:13px; font-weight:600; color:var(--success); margin-bottom:15px;">Prêt à scanner...</div>
+                <div id="grocery-list-container"></div>
+            </div>
+            <div class="modal-footer"><button class="btn btn-primary" style="width:100%;" onclick="commitGroceryBasket()">Valider le panier (<span id="basket-count">0</span>)</button></div>
+        </div>
+    </div>
+
+    <!-- MODAL PRODUIT INCONNU -->
+    <div id="unknown-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header"><h2 class="modal-title" style="color:var(--warning)">Produit Inconnu 🕵️</h2></div>
+            <div class="modal-body">
+                <p style="font-size:14px; color:gray; margin-bottom:20px;">Ce code-barre est nouveau.</p>
+                <div class="form-group"><label class="form-label">Nom du produit</label><input type="text" class="form-input" id="unk-name" placeholder="Ex: Pâtes Torti"></div>
+                <div style="display:flex; gap:10px;">
+                    <div class="form-group" style="flex:1"><label class="form-label">Catégorie</label><select id="unk-category" class="form-input"></select></div>
+                    <div class="form-group" style="flex:1"><label class="form-label">Sous-Cat</label><select id="unk-subcategory" class="form-input"></select></div>
+                </div>
+                <div class="form-group"><label class="form-label">Marque</label><input type="text" class="form-input" id="unk-brand" placeholder="Ex: Panzani"></div>
+                <input type="hidden" id="unk-code">
+            </div>
+            <div class="modal-footer" style="justify-content: flex-end;"><button class="btn btn-primary" style="width:100%" onclick="confirmUnknownItem()">Valider & Reprendre</button></div>
+        </div>
+    </div>
+
+    <!-- MODAL AJOUT STOCK RAPIDE -->
+    <div id="stockAddModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header"><h2 class="modal-title">Ajout Rapide</h2><button class="modal-close" onclick="closeStockModal()">×</button></div>
+            <div class="modal-body">
+                <p id="stock-modal-name" style="font-weight:600; color:var(--primary); margin-bottom:15px; font-size:16px;"></p>
+                <div class="form-group"><label class="form-label">Quantité à ajouter</label><input type="number" class="form-input" id="inp-stock-qty" value="1" min="1" oninput="updateDatesList('stock')"></div>
+                <label class="switch-wrapper"><input type="checkbox" class="switch-input" id="chk-stock-dates" onchange="toggleDates('stock')"><span class="switch-label">Saisir les dates ?</span></label>
+                <div id="list-dates-stock" class="dlc-grid"></div>
+            </div>
+            <div class="modal-footer" style="justify-content: flex-end;"><button class="btn btn-ghost" onclick="closeStockModal()">Annuler</button><button class="btn btn-primary" onclick="confirmStockAdd()">Valider</button></div>
+        </div>
+    </div>
+
+    <!-- MODAL EDIT DATES -->
+    <div id="editDatesModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header"><h2 class="modal-title">Modifier les dates</h2><button class="modal-close" onclick="document.getElementById('editDatesModal').style.display='none'">×</button></div>
+            <div class="modal-body"><div id="edit-dates-list" style="display:flex; flex-direction:column; gap:10px;"></div></div>
+            <div class="modal-footer" style="justify-content: flex-end;"><button class="btn btn-ghost" onclick="document.getElementById('editDatesModal').style.display='none'">Annuler</button><button class="btn btn-primary" onclick="saveEditedDates()">Sauvegarder</button></div>
+        </div>
+    </div>
+
+    <!-- MODAL VALIDATION RETOUR COURSES -->
+    <div id="modal-shop-validate" class="modal">
+        <div class="modal-content">
+            <div class="modal-header"><h2 class="modal-title">Retour de courses 🏠</h2><button class="modal-close" onclick="closeValidateModal()">×</button></div>
+            <div class="modal-body">
+                <p style="font-size:13px; color:#718096; margin-bottom:15px;">Vérifiez les quantités achetées avant de ranger dans le stock.</p>
+                <div id="shop-validate-list"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-ghost" onclick="closeValidateModal()">Annuler</button>
+                <button class="btn btn-primary" style="flex:1" onclick="confirmShopToStock()">Tout ranger !</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL REMPLACEMENT MANUEL -->
+    <div id="modal-manual-replace" class="modal">
+        <div class="modal-content">
+            <div class="modal-header"><h2 class="modal-title">Remplacement Manuel</h2><button class="modal-close" onclick="closeManualReplace()">×</button></div>
+            <div class="modal-body">
+                <p style="font-size:13px; color:#A0AEC0; margin-bottom:15px;">Par quoi remplacez-vous cet article ?</p>
+                <div class="form-group"><label class="form-label">Nom du produit</label><input type="text" class="form-input" id="man-rep-name" list="dl-products-names" placeholder="Ex: Pâtes Panzani"><datalist id="dl-products-names"></datalist></div>
+                <div class="form-group"><label class="form-label">Marque (Optionnel)</label><input type="text" class="form-input" id="man-rep-brand"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-ghost" onclick="closeManualReplace()">Annuler</button>
+                <button class="btn btn-primary" onclick="confirmManualReplace()">Valider le changement</button>
+            </div>
+        </div>
+    </div>
+
+<script>
+    // ============================================================
+    // SUPABASE CONFIG
+    // ============================================================
+    const SUPABASE_URL  = 'https://befgjcstbmhftpycttvj.supabase.co';
+    const SUPABASE_ANON = 'sb_publishable_WZLGfylP2QosGfX-LZ_m2Q_YBsGcaBd';
+    const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+    // ============================================================
+    // CONSTANTES & ÉTAT
+    // ============================================================
+    const KEY_FOYER    = 'monstock_foyer_id';
+    const KEY_STOCK    = "foyer_stock_pop_v8";
+    const KEY_REFS     = "foyer_refs_pop_v8";
+    const KEY_CATS     = "foyer_cats_v8";
+    const KEY_SUBCATS  = "foyer_subcats_v8";
+    const KEY_SHOPPING = "foyer_shopping_list_v1";
+
+    const DEFAULT_CATS = [
+        { id: 'uncategorized', name: '⚠️ À catégoriser', icon: '', color: '#E2E8F0', text: '#718096' },
+        { id: 'food',     name: 'Alimentaire', icon: '🍏', color: '#C6F6D5', text: '#22543D' },
+        { id: 'hygiene',  name: 'Hygiène',     icon: '🧼', color: '#B2F5EA', text: '#234E52' },
+        { id: 'house',    name: 'Ménage',      icon: '🧹', color: '#BEE3F8', text: '#2A4365' },
+        { id: 'diy',      name: 'Brico',       icon: '🔧', color: '#EDF2F7', text: '#4A5568' },
+        { id: 'other',    name: 'Autre',        icon: '📦', color: '#FEFCBF', text: '#744210' }
+    ];
+    const DEFAULT_SUBCATS = ["Pâtes", "Riz", "Conserves", "Sauces", "Epices", "Boissons", "Petit Déj", "Snack"];
+
+    let products      = [];
+    let knownRefs     = {};
+    let categories    = [];
+    let subcategories = [];
+    let shoppingList  = [];
+
+    const uiState = { categories: new Set(), subcats: new Set(), products: new Set() };
+
+    let html5QrcodeScanner  = null;
+    let currentModifyingId  = null;
+    let groceryBasket       = [];
+    let tempBasket          = [];
+    let scanCooldown        = false;
+    let currentShopId       = null;
+    let currentShopQty      = 1;
+    let itemsToValidate     = [];
+    let replacementIndex    = -1;
+
+    // ============================================================
+    // UTILITAIRES SÉCURITÉ - Prévention XSS
+    // ============================================================
+    function esc(str) {
+        if (str === null || str === undefined) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    // ============================================================
+    // MODALE DE CONFIRMATION CUSTOM (remplace confirm())
+    // ============================================================
+    function showConfirm(message, title = 'Confirmer') {
+        return new Promise(resolve => {
+            document.getElementById('confirm-title').textContent = title;
+            document.getElementById('confirm-message').textContent = message;
+            const modal = document.getElementById('confirmModal');
+            modal.style.display = 'flex';
+            const okBtn     = document.getElementById('confirm-ok');
+            const cancelBtn = document.getElementById('confirm-cancel');
+            const cleanup = (result) => {
+                modal.style.display = 'none';
+                okBtn.onclick = null;
+                cancelBtn.onclick = null;
+                resolve(result);
+            };
+            okBtn.onclick     = () => cleanup(true);
+            cancelBtn.onclick = () => cleanup(false);
+        });
+    }
+
+    // ============================================================
+    // MODALE DE PROMPT CUSTOM (remplace prompt())
+    // ============================================================
+    function showPrompt(title, placeholder1 = '', placeholder2 = null) {
+        return new Promise(resolve => {
+            document.getElementById('prompt-title').textContent = title;
+            const inp1 = document.getElementById('prompt-input');
+            const inp2 = document.getElementById('prompt-input2');
+            const wrap2 = document.getElementById('prompt-field2-wrap');
+            inp1.value = '';
+            inp1.placeholder = placeholder1;
+            if (placeholder2) {
+                inp2.value = '';
+                inp2.placeholder = placeholder2;
+                wrap2.style.display = 'block';
+            } else {
+                wrap2.style.display = 'none';
+            }
+            const modal = document.getElementById('promptModal');
+            modal.style.display = 'flex';
+            setTimeout(() => inp1.focus(), 100);
+            const cleanup = (result) => {
+                modal.style.display = 'none';
+                document.getElementById('prompt-ok').onclick = null;
+                document.getElementById('prompt-cancel').onclick = null;
+                resolve(result);
+            };
+            document.getElementById('prompt-ok').onclick = () => {
+                const v1 = inp1.value.trim();
+                if (!v1) return;
+                cleanup(placeholder2 ? [v1, inp2.value.trim()] : v1);
+            };
+            document.getElementById('prompt-cancel').onclick = () => cleanup(null);
+            inp1.onkeydown = (e) => { if (e.key === 'Enter') document.getElementById('prompt-ok').click(); };
+        });
+    }
+
+    // ============================================================
+    // FOYER — identifiant partagé du foyer
+    // ============================================================
+    function getFoyerId() {
+        let id = localStorage.getItem(KEY_FOYER);
+        if (!id) {
+            id = generateFoyerCode();
+            localStorage.setItem(KEY_FOYER, id);
+        }
+        return id;
+    }
+
+    function generateFoyerCode() {
+        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        return Array.from({length: 8}, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+    }
+
+    function openFoyerModal() {
+        document.getElementById('foyer-code-display').textContent = getFoyerId();
+        document.getElementById('inp-foyer-join').value = '';
+        document.getElementById('foyerModal').style.display = 'flex';
+    }
+
+    function copyFoyerCode() {
+        navigator.clipboard.writeText(getFoyerId()).then(() => toast('Code copié ! 📋', 'success'));
+    }
+
+    async function joinFoyer() {
+        const code = document.getElementById('inp-foyer-join').value.trim().toUpperCase();
+        if (code.length !== 8) { toast('Code invalide (8 caractères)', 'error'); return; }
+        const ok = await showConfirm(`Rejoindre le foyer "${code}" ? Tes données locales seront remplacées par celles du foyer.`, 'Rejoindre un foyer');
+        if (!ok) return;
+        localStorage.setItem(KEY_FOYER, code);
+        document.getElementById('foyer-code-display').textContent = code;
+        document.getElementById('foyerModal').style.display = 'none';
+        await loadFromCloud();
+        toast(`Foyer "${code}" rejoint ! 🏠`, 'success');
+    }
+
+    // ============================================================
+    // SYNC STATUS UI
+    // ============================================================
+    let syncTimer = null;
+    function showSync(state, label) {
+        const el  = document.getElementById('sync-status');
+        const dot = el.querySelector('.sync-dot');
+        const lbl = document.getElementById('sync-label');
+        el.className = `show ${state}`;
+        dot.className = `sync-dot${state === 'syncing' ? ' pulse' : ''}`;
+        lbl.textContent = label;
+        clearTimeout(syncTimer);
+        if (state !== 'syncing') {
+            syncTimer = setTimeout(() => { el.className = ''; }, 3000);
+        }
+    }
+
+    // ============================================================
+    // INIT & SAUVEGARDE
+    // ============================================================
+    async function load() {
+        // 1. Charger depuis localStorage en premier (affichage immédiat)
+        try {
+            products      = JSON.parse(localStorage.getItem(KEY_STOCK)    || '[]');
+            knownRefs     = JSON.parse(localStorage.getItem(KEY_REFS)     || '{}');
+            const storedCats = localStorage.getItem(KEY_CATS);
+            categories    = storedCats ? JSON.parse(storedCats) : JSON.parse(JSON.stringify(DEFAULT_CATS));
+            const storedSubs = localStorage.getItem(KEY_SUBCATS);
+            subcategories = storedSubs ? JSON.parse(storedSubs) : [...DEFAULT_SUBCATS];
+            subcategories.sort();
+            shoppingList  = JSON.parse(localStorage.getItem(KEY_SHOPPING) || '[]');
+            products.forEach(p => { if (!Array.isArray(p.open_items)) p.open_items = []; });
+        } catch(e) {
+            products = []; categories = JSON.parse(JSON.stringify(DEFAULT_CATS)); subcategories = [...DEFAULT_SUBCATS];
+        }
+        updateAllSelects();
+        render();
+        // 2. Ensuite sync cloud (sans bloquer l'UI)
+        await loadFromCloud();
+    }
+
+    async function loadFromCloud() {
+        showSync('syncing', 'Synchronisation...');
+        const foyerId = getFoyerId();
+        try {
+            const [stockRes, shopRes, confRes] = await Promise.all([
+                sb.from('wms_stock').select('data').eq('foyer_id', foyerId).single(),
+                sb.from('wms_shopping').select('data').eq('foyer_id', foyerId).single(),
+                sb.from('wms_config').select('data').eq('foyer_id', foyerId).single(),
+            ]);
+            let changed = false;
+            if (stockRes.data) {
+                const d = stockRes.data.data;
+                products      = d.products      || [];
+                knownRefs     = d.knownRefs     || {};
+                products.forEach(p => { if (!Array.isArray(p.open_items)) p.open_items = []; });
+                localStorage.setItem(KEY_STOCK, JSON.stringify(products));
+                localStorage.setItem(KEY_REFS,  JSON.stringify(knownRefs));
+                changed = true;
+            }
+            if (shopRes.data) {
+                shoppingList = shopRes.data.data.shoppingList || [];
+                localStorage.setItem(KEY_SHOPPING, JSON.stringify(shoppingList));
+                changed = true;
+            }
+            if (confRes.data) {
+                const d = confRes.data.data;
+                categories    = d.categories    || JSON.parse(JSON.stringify(DEFAULT_CATS));
+                subcategories = d.subcategories || [...DEFAULT_SUBCATS];
+                subcategories.sort();
+                localStorage.setItem(KEY_CATS,    JSON.stringify(categories));
+                localStorage.setItem(KEY_SUBCATS, JSON.stringify(subcategories));
+                changed = true;
+            }
+            if (changed) { updateAllSelects(); render(); renderAlertDashboard(); }
+            showSync('synced', 'Synchronisé ✓');
+        } catch(e) {
+            showSync('error', 'Erreur sync');
+        }
+    }
+
+    // Debounce pour éviter 10 appels cloud par seconde
+    let saveDebounceTimer = null;
+    function scheduleSave() {
+        clearTimeout(saveDebounceTimer);
+        saveDebounceTimer = setTimeout(() => saveToCloud(), 1200);
+    }
+
+    function save() {
+        localStorage.setItem(KEY_STOCK,   JSON.stringify(products));
+        localStorage.setItem(KEY_REFS,    JSON.stringify(knownRefs));
+        localStorage.setItem(KEY_CATS,    JSON.stringify(categories));
+        localStorage.setItem(KEY_SUBCATS, JSON.stringify(subcategories));
+        render();
+        renderAlertDashboard();
+        scheduleSave();
+    }
+
+    function saveShopping() {
+        localStorage.setItem(KEY_SHOPPING, JSON.stringify(shoppingList));
+        scheduleSave();
+    }
+
+    async function saveToCloud() {
+        showSync('syncing', 'Sauvegarde...');
+        const foyerId = getFoyerId();
+        try {
+            await Promise.all([
+                sb.from('wms_stock').upsert({
+                    foyer_id: foyerId,
+                    data: { products, knownRefs },
+                    updated_at: new Date().toISOString()
+                }),
+                sb.from('wms_shopping').upsert({
+                    foyer_id: foyerId,
+                    data: { shoppingList },
+                    updated_at: new Date().toISOString()
+                }),
+                sb.from('wms_config').upsert({
+                    foyer_id: foyerId,
+                    data: { categories, subcategories },
+                    updated_at: new Date().toISOString()
+                }),
+            ]);
+            showSync('synced', 'Sauvegardé ✓');
+        } catch(e) {
+            showSync('error', 'Erreur sauvegarde');
+        }
+    }
+
+    // ============================================================
+    // EXPORT / IMPORT
+    // ============================================================
+    function exportData() {
+        const data = {
+            version: 10,
+            foyerId: getFoyerId(),
+            exportedAt: new Date().toISOString(),
+            products, knownRefs, categories, subcategories, shoppingList
+        };
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement('a');
+        const date = new Date().toISOString().split('T')[0];
+        a.href     = url;
+        a.download = `monstock_backup_${date}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        toggleSidebar();
+        toast("Export téléchargé !", "success");
+    }
+
+    function importData(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            try {
+                const data = JSON.parse(e.target.result);
+                const ok = await showConfirm(
+                    `Importer ${data.products ? data.products.length : '?'} produits ? Ceci remplacera vos données actuelles et sera synchronisé dans le cloud.`,
+                    "Importer un backup"
+                );
+                if (!ok) return;
+                if (data.products)      { products = data.products; products.forEach(p => { if (!Array.isArray(p.open_items)) p.open_items = []; }); }
+                if (data.knownRefs)     knownRefs = data.knownRefs;
+                if (data.categories)    categories = data.categories;
+                if (data.subcategories) subcategories = data.subcategories;
+                if (data.shoppingList)  shoppingList = data.shoppingList;
+                save();
+                saveShopping();
+                updateAllSelects();
+                toast("Import réussi, sync en cours...", "success");
+            } catch(err) {
+                toast("Fichier invalide !", "error");
+            }
+        };
+        reader.readAsText(file);
+        event.target.value = "";
+    }
+
+    // ============================================================
+    // DASHBOARD ALERTES
+    // ============================================================
+    function renderAlertDashboard() {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const in7  = new Date(today); in7.setDate(in7.getDate() + 7);
+        const in30 = new Date(today); in30.setDate(in30.getDate() + 30);
+
+        const expired  = [];
+        const soonWarn = [];
+        const empty    = [];
+
+        products.forEach(p => {
+            const total = p.reserve_qty + p.open_items.length;
+            if (total === 0) { empty.push(p); return; }
+            const dlc = getBestDLC(p);
+            if (dlc < "9999") {
+                const dlcDate = new Date(dlc);
+                if (dlcDate <= today)  expired.push(p);
+                else if (dlcDate <= in30) soonWarn.push({ p, dlcDate });
+            }
+        });
+
+        // Mini banner in stock view
+        const miniEl = document.getElementById('alert-dashboard-mini');
+        let miniHtml = '';
+        if (expired.length > 0) {
+            miniHtml += `<div class="alert-banner" style="margin-bottom:10px;" onclick="switchViewDirect('dashboard')" style="cursor:pointer;">
+                <div class="alert-banner-title">⛔ ${expired.length} produit(s) périmé(s) !</div>
+                ${expired.slice(0,3).map(p => `<div class="alert-item"><span class="alert-item-name">${esc(p.name)}</span><span class="alert-item-badge">Expiré</span></div>`).join('')}
+                ${expired.length > 3 ? `<div style="font-size:11px; color:#822727; margin-top:5px;">+ ${expired.length - 3} autres...</div>` : ''}
+            </div>`;
+        }
+        if (soonWarn.length > 0) {
+            miniHtml += `<div class="alert-banner alert-warn-banner" style="margin-bottom:10px;">
+                <div class="alert-banner-title">⚠️ ${soonWarn.length} produit(s) expirent bientôt</div>
+                ${soonWarn.slice(0,3).map(({ p, dlcDate }) => {
+                    const diff = Math.round((dlcDate - today) / 86400000);
+                    return `<div class="alert-item"><span class="alert-item-name">${esc(p.name)}</span><span class="alert-item-badge">J-${diff}</span></div>`;
+                }).join('')}
+            </div>`;
+        }
+        if (miniEl) miniEl.innerHTML = miniHtml;
+
+        // Full dashboard view
+        const dashEl = document.getElementById('dashboard-content');
+        if (!dashEl) return;
+        let html = '';
+        if (products.length === 0) {
+            html = `<div style="text-align:center; color:#A0AEC0; margin-top:50px;"><div style="font-size:40px; margin-bottom:10px;">📦</div><div style="font-weight:600">Stock vide</div></div>`;
+        } else {
+            // Stats globales
+            const totalProducts = products.length;
+            const totalItems = products.reduce((a, p) => a + p.reserve_qty + p.open_items.length, 0);
+            const cats0 = products.filter(p => !p.category || p.category === 'uncategorized').length;
+            html += `<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:20px;">
+                <div style="background:white; padding:15px; border-radius:16px; box-shadow:var(--shadow); text-align:center;">
+                    <div style="font-size:28px; font-weight:800; color:var(--primary);">${totalProducts}</div>
+                    <div style="font-size:12px; color:var(--text-muted);">Références</div>
+                </div>
+                <div style="background:white; padding:15px; border-radius:16px; box-shadow:var(--shadow); text-align:center;">
+                    <div style="font-size:28px; font-weight:800; color:var(--success);">${totalItems}</div>
+                    <div style="font-size:12px; color:var(--text-muted);">Unités en stock</div>
+                </div>
+            </div>`;
+            if (expired.length > 0) {
+                html += `<div class="alert-banner" style="margin-bottom:15px;">
+                    <div class="alert-banner-title">⛔ Produits périmés (${expired.length})</div>
+                    ${expired.map(p => `<div class="alert-item"><span class="alert-item-name">${esc(p.name)}</span><span class="alert-item-badge">Périmé</span></div>`).join('')}
+                </div>`;
+            }
+            if (soonWarn.length > 0) {
+                html += `<div class="alert-banner alert-warn-banner" style="margin-bottom:15px;">
+                    <div class="alert-banner-title">⚠️ Expirent dans 30 jours (${soonWarn.length})</div>
+                    ${soonWarn.map(({ p, dlcDate }) => {
+                        const diff = Math.round((dlcDate - today) / 86400000);
+                        return `<div class="alert-item"><span class="alert-item-name">${esc(p.name)}</span><span class="alert-item-badge">J-${diff}</span></div>`;
+                    }).join('')}
+                </div>`;
+            }
+            if (empty.length > 0) {
+                html += `<div style="background:white; border-radius:16px; box-shadow:var(--shadow); padding:15px; margin-bottom:15px;">
+                    <div style="font-size:13px; font-weight:700; color:#718096; margin-bottom:8px;">📭 Stock épuisé (${empty.length})</div>
+                    ${empty.map(p => `<div class="alert-item" style="color:#4A5568;"><span class="alert-item-name">${esc(p.name)}</span><button onclick="openShopModal('${esc(p.id)}')" style="font-size:11px; background:var(--primary-light); color:var(--primary); border:none; border-radius:8px; padding:3px 8px; cursor:pointer;">Ajouter aux courses</button></div>`).join('')}
+                </div>`;
+            }
+            if (cats0 > 0) {
+                html += `<div style="background:white; border-radius:16px; box-shadow:var(--shadow); padding:15px;">
+                    <div style="font-size:13px; font-weight:700; color:#718096; margin-bottom:8px;">⚠️ À catégoriser (${cats0})</div>
+                    ${products.filter(p => !p.category || p.category === 'uncategorized').map(p => `<div class="alert-item" style="color:#4A5568;"><span class="alert-item-name">${esc(p.name)}</span><button onclick="openEditProduct('${esc(p.id)}'); switchViewDirect('stock')" style="font-size:11px; background:#EDF2F7; color:#4A5568; border:none; border-radius:8px; padding:3px 8px; cursor:pointer;">Catégoriser</button></div>`).join('')}
+                </div>`;
+            }
+            if (expired.length === 0 && soonWarn.length === 0 && empty.length === 0 && cats0 === 0) {
+                html += `<div style="text-align:center; color:#48BB78; margin-top:40px;"><div style="font-size:50px; margin-bottom:10px;">✅</div><div style="font-weight:700; font-size:16px;">Tout est en ordre !</div><div style="font-size:13px; color:var(--text-muted); margin-top:5px;">Aucune alerte pour le moment.</div></div>`;
+            }
+        }
+        dashEl.innerHTML = html;
+    }
+
+    // ============================================================
+    // NAVIGATION
+    // ============================================================
+    function toggleSidebar() {
+        document.getElementById('sidebar').classList.toggle('active');
+        document.querySelector('.sidebar-overlay').classList.toggle('active');
+    }
+
+    function switchView(viewName) {
+        toggleSidebar();
+        switchViewDirect(viewName);
+    }
+
+    function switchViewDirect(viewName) {
+        document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+        document.getElementById(`view-${viewName}`).classList.add('active');
+        document.querySelectorAll('.nav-link').forEach(el => el.classList.remove('active'));
+        const idx = ['stock', 'shopping', 'dashboard'].indexOf(viewName);
+        if (idx >= 0) document.querySelectorAll('.nav-link')[idx].classList.add('active');
+        if (viewName === 'shopping')  renderShoppingList();
+        if (viewName === 'dashboard') renderAlertDashboard();
+    }
+
+    // ============================================================
+    // RENDER STOCK (Tree View)
+    // ============================================================
+    function render() {
+        const list = document.getElementById('product-list');
+        list.innerHTML = "";
+
+        const search    = document.getElementById('inp-search').value.toLowerCase();
+        const sort      = document.getElementById('sort-select').value;
+        const filterCat = document.getElementById('filter-cat').value;
+
+        let filtered = products.filter(p => {
+            const matchSearch = !search || (p.name + p.brand + (p.subcategory || "")).toLowerCase().includes(search);
+            const matchCat    = filterCat === 'all' || (p.category || 'uncategorized') === filterCat;
+            return matchSearch && matchCat;
+        });
+
+        if (filtered.length === 0) {
+            list.innerHTML = `<div style="text-align:center; color:#A0AEC0; margin-top:50px;"><div style="font-size:40px; margin-bottom:10px;">👻</div><div style="font-weight:600">Aucun produit</div></div>`;
+            return;
+        }
+
+        const groups = {};
+        categories.forEach(c => { groups[c.id] = { conf: c, items: [], subcats: {}, totalQty: 0, count: 0 }; });
+        if (!groups['uncategorized']) groups['uncategorized'] = { conf: DEFAULT_CATS[0], items: [], subcats: {}, totalQty: 0, count: 0 };
+
+        filtered.forEach(p => {
+            const catId = (p.category && groups[p.category]) ? p.category : 'uncategorized';
+            const g     = groups[catId];
+            const sub   = p.subcategory || "";
+            const qty   = p.reserve_qty + p.open_items.length;
+            g.totalQty += qty; g.count++;
+            if (sub) {
+                if (!g.subcats[sub]) g.subcats[sub] = { items: [], totalQty: 0, count: 0 };
+                g.subcats[sub].items.push(p); g.subcats[sub].totalQty += qty; g.subcats[sub].count++;
+            } else { g.items.push(p); }
+        });
+
+        categories.forEach(catConf => {
+            const g = groups[catConf.id];
+            if (!g || g.count === 0) return;
+
+            const isCatOpen = uiState.categories.has(catConf.id) || (filterCat !== 'all' && filterCat === catConf.id) || search.length > 0;
+            const catDiv = document.createElement('div');
+            catDiv.className = "tree-group";
+            if (isCatOpen) catDiv.classList.add('expanded');
+
+            const catHeader = document.createElement('div');
+            catHeader.className = "tree-cat-header";
+            catHeader.style.borderLeft = `5px solid ${catConf.color}`;
+            catHeader.onclick = () => toggleCategory(catConf.id);
+            // Safe : catConf.icon et catConf.name viennent des données internes
+            catHeader.innerHTML = `<div class="tree-cat-info"><span style="font-size:18px;">${esc(catConf.icon)}</span><div><div>${esc(catConf.name)}</div><div class="tree-cat-stats">${g.count} article(s) • Stock: ${g.totalQty}</div></div></div><div class="arrow-icon">▼</div>`;
+
+            const catContent = document.createElement('div');
+            catContent.className = "tree-cat-content";
+            if (isCatOpen) catContent.classList.add('show');
+
+            const sortedSubNames = Object.keys(g.subcats).sort();
+            sortedSubNames.forEach(subName => {
+                const subG   = g.subcats[subName];
+                const subKey = `${catConf.id}|${subName}`;
+                const isSubOpen = uiState.subcats.has(subKey) || search.length > 0;
+                const subDiv = document.createElement('div');
+                subDiv.className = "tree-sub-group";
+                if (isSubOpen) subDiv.classList.add('expanded');
+                const subHeader = document.createElement('div');
+                subHeader.className = 'tree-sub-header';
+                subHeader.innerHTML = `<div><span class="sub-arrow">▶</span> ${esc(subName)} <span style="opacity:0.5; font-weight:400; font-size:11px; margin-left:5px;">(${subG.count} art. | ${subG.totalQty})</span></div>`;
+                subHeader.onclick = () => toggleSub(catConf.id, subName);
+                const subContent = document.createElement('div');
+                subContent.className = `tree-sub-content ${isSubOpen ? 'show' : ''}`;
+                subContent.innerHTML = renderCardsHTML(subG.items, sort);
+                subDiv.appendChild(subHeader);
+                subDiv.appendChild(subContent);
+                catContent.appendChild(subDiv);
+            });
+
+            if (g.items.length > 0) {
+                if (sortedSubNames.length > 0) {
+                    const sep = document.createElement('div');
+                    sep.style.cssText = "font-size:10px; font-weight:700; color:#A0AEC0; margin:15px 0 5px 0; text-transform:uppercase; letter-spacing:1px;";
+                    sep.textContent = "Autres articles";
+                    catContent.appendChild(sep);
+                }
+                const orphanWrapper = document.createElement('div');
+                orphanWrapper.innerHTML = renderCardsHTML(g.items, sort);
+                catContent.appendChild(orphanWrapper);
+            }
+
+            catDiv.appendChild(catHeader); catDiv.appendChild(catContent); list.appendChild(catDiv);
+        });
+    }
+
+    function renderCardsHTML(items, sortMethod) {
+        items.sort((a, b) => {
+            if (sortMethod === 'dlc')   return getBestDLC(a).localeCompare(getBestDLC(b));
+            if (sortMethod === 'stock') return (a.reserve_qty + a.open_items.length) - (b.reserve_qty + b.open_items.length);
+            return (a.name || "").localeCompare(b.name || "");
+        });
+        return items.map(p => {
+            const total   = p.reserve_qty + p.open_items.length;
+            const nextDLC = getBestDLC(p);
+            let dlcHtml = "";
+            if (nextDLC < "9999") {
+                const diff = (new Date(nextDLC) - new Date()) / (1000 * 60 * 60 * 24);
+                let cls = "ok"; if (diff < 0) cls = "bad"; else if (diff < 30) cls = "warn";
+                dlcHtml = `<span class="dlc-pill ${cls}">${esc(formatDate(nextDLC))}</span>`;
+            }
+            const isExpanded = uiState.products.has(p.id);
+            const safeId     = esc(p.id);
+            const safeName   = esc(p.name);
+            const safeBrand  = esc(p.brand || '');
+
+            const datesDisplay = p.reserve_expiries.length
+                ? p.reserve_expiries.map(d => d ? formatDate(d) : 'ND').slice(0, 3).join(', ') + (p.reserve_expiries.length > 3 ? '...' : '')
+                : "Pas de dates";
+
+            const openItemsHtml = p.open_items.map(item => {
+                const safeItemId = esc(item.id);
+                const entameActive = item.state === 'ENTAME' ? 'active' : '';
+                const moitieActive = item.state === 'MOITIE' ? 'active' : '';
+                const finActive    = item.state === 'FIN'    ? 'active' : '';
+                return `<div class="open-item-card">
+                    <div class="open-header"><span>${item.expiry ? 'DLC: ' + esc(formatDate(item.expiry)) : 'Pas de DLC'}</span><span>Ouvert le ${esc(formatShort(item.opened_at))}</span></div>
+                    <div class="segment-control">
+                        <button class="seg-opt ${entameActive}" onclick="updateItem('${safeId}', '${safeItemId}', 'ENTAME')">Plein</button>
+                        <button class="seg-opt ${moitieActive}" onclick="updateItem('${safeId}', '${safeItemId}', 'MOITIE')">Moitié</button>
+                        <button class="seg-opt ${finActive}"    onclick="updateItem('${safeId}', '${safeItemId}', 'FIN')">Fin</button>
+                        <button class="seg-opt trash"            onclick="updateItem('${safeId}', '${safeItemId}', 'JETER')">Jeter</button>
+                    </div>
+                </div>`;
+            }).join('');
+
+            return `
+            <div class="card card-in-tree">
+                <div class="card-compact" onclick="toggleCard('${safeId}')">
+                    <div class="prod-info">
+                        <div class="prod-name"><span style="overflow:hidden; text-overflow:ellipsis;">${safeName}</span>${dlcHtml}</div>
+                        <div class="prod-brand">${safeBrand}</div>
+                    </div>
+                    <div class="prod-stats">
+                        <button class="btn-mini-action btn-mini-cart" onclick="event.stopPropagation(); openShopModal('${safeId}')">🛒</button>
+                        <button class="btn-mini-action btn-mini-edit" onclick="event.stopPropagation(); openEditProduct('${safeId}')">✏️</button>
+                        ${p.open_items.length > 0 ? `<div class="open-badge">${p.open_items.length} Ouv.</div>` : ''}
+                        <div class="qty-badge ${total === 0 ? 'empty' : ''}">${total}</div>
+                    </div>
+                </div>
+                <div class="card-expanded" id="expand-${safeId}" style="display: ${isExpanded ? 'block' : 'none'}">
+                    <div class="section-title">En Réserve (${p.reserve_qty})</div>
+                    <div class="manage-stock-row">
+                        <div class="date-display">${esc(datesDisplay)}</div>
+                        <div class="stepper">
+                            <button class="step-btn" onclick="openEditDates('${safeId}')">🗓️</button>
+                            <button class="step-btn" onclick="act(event, '${safeId}', 'res_min')">−</button>
+                            <button class="step-btn main-action" onclick="act(event, '${safeId}', 'ask_open')">Ouvrir</button>
+                            <button class="step-btn" onclick="act(event, '${safeId}', 'res_add')">+</button>
+                        </div>
+                    </div>
+                    <div id="picker-${safeId}" class="inline-picker"><div id="picker-title-${safeId}" style="font-size:12px; font-weight:700; color:#A0AEC0; margin-bottom:10px;">CHOISIR LE LOT</div><div id="picker-list-${safeId}"></div><button class="btn-ghost" style="width:100%; color:#E53E3E; font-size:12px;" onclick="hidePicker('${safeId}')">Annuler</button></div>
+                    ${p.open_items.length > 0 ? `<div class="section-title" style="margin-top:20px;">Produits ouverts (${p.open_items.length})</div>` : ''}
+                    <div>${openItemsHtml}</div>
+                    <div style="margin-top:25px; text-align:center;"><button class="btn-danger-ghost" onclick="act(event, '${safeId}', 'del')">Supprimer ce produit</button></div>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    // ============================================================
+    // LISTE DE COURSES
+    // ============================================================
+    function openShopModal(id) {
+        const p = products.find(x => x.id === id); if (!p) return;
+        currentShopId = id; currentShopQty = 1;
+        document.getElementById('shop-add-name').textContent = p.name;
+        document.getElementById('shop-add-qty').textContent = "1";
+        document.getElementById('modal-shop-add').style.display = 'flex';
+    }
+    function closeShopModal() { document.getElementById('modal-shop-add').style.display = 'none'; currentShopId = null; }
+    function adjustShopQty(delta) {
+        currentShopQty += delta;
+        if (currentShopQty < 1) currentShopQty = 1;
+        document.getElementById('shop-add-qty').textContent = currentShopQty;
+    }
+    function confirmAddToShop() {
+        if (!currentShopId) return;
+        const existing = shoppingList.find(item => item.prodId === currentShopId);
+        if (existing) { existing.qty += currentShopQty; }
+        else { shoppingList.push({ id: crypto.randomUUID(), prodId: currentShopId, qty: currentShopQty, checked: false }); }
+        saveShopping(); closeShopModal(); toast(`Ajouté à la liste (${currentShopQty}) 🛒`);
+    }
+
+    function renderShoppingList() {
+        const container = document.getElementById('shopping-list-container');
+        if (shoppingList.length === 0) {
+            container.innerHTML = `<div style="text-align:center; padding:40px; color:#A0AEC0;"><div style="font-size:40px; margin-bottom:10px;">🛒</div>Votre liste est vide.</div>`;
+            return;
+        }
+        container.innerHTML = '';
+        shoppingList.forEach((item, idx) => {
+            const prod    = products.find(p => p.id === item.prodId);
+            const name    = prod ? prod.name : "Produit supprimé";
+            const brand   = prod ? prod.brand : "";
+            const div = document.createElement('div');
+            div.className = `shop-item${item.checked ? ' checked' : ''}`;
+            div.innerHTML = `
+                <div style="display:flex; align-items:center; flex:1;">
+                    <div class="shop-check-btn" onclick="toggleShopCheck(${idx})">✓</div>
+                    <div>
+                        <div style="font-weight:600; font-size:14px;">${esc(name)}</div>
+                        <div style="font-size:12px; color:var(--text-muted);">${esc(brand)}</div>
+                    </div>
+                </div>
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <div class="shop-qty-box">${item.qty}</div>
+                    <button onclick="removeShopItem(${idx})" style="background:#FED7D7; color:#C53030; border:none; width:28px; height:28px; border-radius:50%; cursor:pointer; font-size:16px; display:flex; align-items:center; justify-content:center;">×</button>
+                </div>`;
+            container.appendChild(div);
+        });
+    }
+
+    function toggleShopCheck(idx) { shoppingList[idx].checked = !shoppingList[idx].checked; saveShopping(); renderShoppingList(); }
+    function removeShopItem(idx) { shoppingList.splice(idx, 1); saveShopping(); renderShoppingList(); }
+    async function clearShoppingList() {
+        const ok = await showConfirm("Vider toute la liste de courses ?", "Vider la liste");
+        if (ok) { shoppingList = []; saveShopping(); renderShoppingList(); }
+    }
+
+    // ============================================================
+    // VALIDATION RETOUR COURSES
+    // ============================================================
+    function openValidateShopModal() {
+        itemsToValidate = shoppingList.filter(item => item.checked);
+        if (itemsToValidate.length === 0) { toast("Cochez des articles ! ☝️", "error"); return; }
+
+        const dl = document.getElementById('dl-products-names');
+        if (dl) dl.innerHTML = products.map(p => `<option value="${esc(p.name)}">`).join('');
+
+        const listDiv = document.getElementById('shop-validate-list');
+        listDiv.innerHTML = '';
+        itemsToValidate.forEach((item, idx) => {
+            const prod = products.find(p => p.id === item.prodId);
+            const name  = prod ? prod.name : "Inconnu";
+            const brand = prod ? prod.brand : "";
+            const row = document.createElement('div');
+            row.className = 'list-item';
+            row.style.borderLeft = '4px solid var(--success)';
+            row.innerHTML = `
+                <div style="display:flex; justify-content:space-between; align-items:center; width:100%;">
+                    <div style="flex:1;">
+                        <strong style="font-size:14px;">${esc(name)}</strong>
+                        <div style="font-size:11px; color:#718096;">${esc(brand)}</div>
+                    </div>
+                    <div style="display:flex; gap:5px;">
+                        <button class="btn btn-ghost" onclick="openManualReplace(${idx})" style="padding:5px 8px; font-size:16px;" title="Saisir manuellement">✏️</button>
+                    </div>
+                </div>
+                <div class="list-item-row" style="margin-top:8px; justify-content:flex-end;">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <button class="step-btn" onclick="updateValidateQty(${idx}, -1)">−</button>
+                        <input type="number" readonly value="${item.qty}" id="val-qty-${idx}" style="width:40px; text-align:center; font-weight:bold; border:none; background:transparent;">
+                        <button class="step-btn" onclick="updateValidateQty(${idx}, 1)">+</button>
+                    </div>
+                </div>`;
+            listDiv.appendChild(row);
+        });
+        document.getElementById('modal-shop-validate').style.display = 'flex';
+    }
+
+    function updateValidateQty(idx, delta) {
+        itemsToValidate[idx].qty += delta;
+        if (itemsToValidate[idx].qty < 1) itemsToValidate[idx].qty = 1;
+        document.getElementById(`val-qty-${idx}`).value = itemsToValidate[idx].qty;
+    }
+
+    function confirmShopToStock() {
+        const totalQty  = itemsToValidate.reduce((acc, item) => acc + item.qty, 0);
+        const countLines = itemsToValidate.length;
+        if (countLines === 0) return;
+        itemsToValidate.forEach(item => {
+            const originalProd = products.find(p => p.id === item.prodId);
+            commitItemToStock({
+                barcode:     originalProd ? originalProd.barcode    : "",
+                name:        originalProd ? originalProd.name       : "Inconnu",
+                brand:       originalProd ? originalProd.brand      : "",
+                category:    originalProd ? originalProd.category   : "uncategorized",
+                subcategory: originalProd ? originalProd.subcategory : "",
+                qty:         item.qty,
+                dates:       Array(item.qty).fill("")
+            });
+        });
+        const validatedIds = itemsToValidate.map(i => i.id);
+        shoppingList = shoppingList.filter(item => !validatedIds.includes(item.id));
+        saveShopping();
+        closeValidateModal();
+        renderShoppingList();
+        toast(`${totalQty} produits rangés ! 🎉`, "success");
+    }
+
+    function closeValidateModal() { document.getElementById('modal-shop-validate').style.display = 'none'; itemsToValidate = []; }
+
+    // ============================================================
+    // REMPLACEMENT MANUEL
+    // ============================================================
+    function openManualReplace(idx) {
+        replacementIndex = idx;
+        const item = itemsToValidate[idx];
+        const prod = products.find(p => p.id === item.prodId);
+        document.getElementById('man-rep-name').value  = prod ? prod.name  : "";
+        document.getElementById('man-rep-brand').value = prod ? prod.brand : "";
+        document.getElementById('modal-shop-validate').style.display = 'none';
+        document.getElementById('modal-manual-replace').style.display = 'flex';
+        document.getElementById('man-rep-name').focus();
+    }
+    function closeManualReplace() {
+        document.getElementById('modal-manual-replace').style.display = 'none';
+        document.getElementById('modal-shop-validate').style.display = 'flex';
+    }
+    function confirmManualReplace() {
+        const newName  = document.getElementById('man-rep-name').value.trim();
+        const newBrand = document.getElementById('man-rep-brand').value.trim();
+        if (!newName) return;
+        let targetProd = products.find(p => p.name.toLowerCase() === newName.toLowerCase());
+        if (targetProd) {
+            itemsToValidate[replacementIndex].prodId = targetProd.id;
+            toast(`Remplacé par : ${targetProd.name}`, "success");
+        } else {
+            const newId = crypto.randomUUID();
+            targetProd = { id: newId, barcode: "MAN_" + Date.now(), name: newName, brand: newBrand, category: "uncategorized", subcategory: "", reserve_qty: 0, reserve_expiries: [], open_items: [] };
+            products.push(targetProd);
+            save();
+            itemsToValidate[replacementIndex].prodId = newId;
+            toast("Nouveau produit créé !", "success");
+        }
+        closeManualReplace();
+        openValidateShopModal();
+    }
+
+    // ============================================================
+    // SCANNER
+    // ============================================================
+    function startScanner() {
+        document.getElementById('scanner-wrapper').style.display = "block";
+        document.getElementById('reader').innerHTML = "";
+        document.getElementById('reader').classList.remove('scanned');
+        html5QrcodeScanner = new Html5Qrcode("reader");
+        html5QrcodeScanner.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 150 } }, (c) => { onScanSuccess(c); });
+    }
+
+    function onScanSuccess(code) {
+        const video = document.querySelector('#reader video');
+        if (video) {
+            const canvas = document.createElement("canvas");
+            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            document.getElementById('reader').innerHTML = `<img src="${canvas.toDataURL('image/png')}" style="width:100%; height:100%; object-fit:cover; border-radius:20px;">`;
+            document.getElementById('reader').classList.add('scanned');
+        }
+        if (html5QrcodeScanner) html5QrcodeScanner.stop().then(() => { html5QrcodeScanner.clear(); html5QrcodeScanner = null; }).catch(() => {});
+        document.getElementById('inp-barcode').value = code;
+        if (knownRefs[code]) {
+            document.getElementById('inp-name').value  = knownRefs[code].name;
+            document.getElementById('inp-brand').value = knownRefs[code].brand;
+            if (knownRefs[code].category)    document.getElementById('inp-category').value    = knownRefs[code].category;
+            if (knownRefs[code].subcategory) document.getElementById('inp-subcategory').value = knownRefs[code].subcategory;
+            document.getElementById('scan-result-badge').innerHTML = "<span style='color:#48BB78'>Produit connu !</span>";
+            toast("Produit reconnu !", "success");
+        } else {
+            document.getElementById('scan-result-badge').textContent = "Recherche en ligne...";
+            fetch(`https://world.openfoodfacts.org/api/v0/product/${code}.json`)
+                .then(r => r.json())
+                .then(d => {
+                    if (d.status === 1) {
+                        document.getElementById('inp-name').value  = d.product.product_name_fr || d.product.product_name || "";
+                        document.getElementById('inp-brand').value = d.product.brands || "";
+                        document.getElementById('inp-category').value = "uncategorized";
+                        document.getElementById('scan-result-badge').innerHTML = "<span style='color:#6C63FF'>Trouvé sur OFF</span>";
+                        toast("Trouvé !", "success");
+                    } else {
+                        document.getElementById('scan-result-badge').innerHTML = "<span style='color:#ED8936'>Inconnu.</span>";
+                    }
+                })
+                .catch(() => { document.getElementById('scan-result-badge').textContent = "Erreur réseau"; });
+        }
+    }
+
+    function closeModal() {
+        document.getElementById('addModal').style.display = 'none';
+        if (html5QrcodeScanner) html5QrcodeScanner.stop().then(() => html5QrcodeScanner.clear()).catch(() => {});
+    }
+
+    // ============================================================
+    // MODE SCAN COURSES (Grocery)
+    // ============================================================
+    function startGroceryMode() {
+        document.getElementById('groceryModal').style.display = 'flex';
+        groceryBasket = [];
+        renderGroceryBasket();
+        html5QrcodeScanner = new Html5Qrcode("reader-grocery");
+        html5QrcodeScanner.start({ facingMode: "environment" }, { fps: 10, qrbox: { width: 250, height: 150 } }, (decodedText) => {
+            if (scanCooldown) return;
+            scanCooldown = true;
+            setTimeout(() => { scanCooldown = false; }, 1500);
+            handleGroceryScan(decodedText);
+        });
+    }
+
+    function handleGroceryScan(code) {
+        const existing = groceryBasket.find(i => i.barcode === code);
+        if (existing) { existing.qty++; renderGroceryBasket(); toast("Quantité +1", "success"); return; }
+        if (knownRefs[code]) {
+            addToBasket(code, knownRefs[code].name, knownRefs[code].brand, knownRefs[code].category, knownRefs[code].subcategory);
+            toast("Ajouté !", "success"); return;
+        }
+        fetch(`https://world.openfoodfacts.org/api/v0/product/${code}.json`)
+            .then(r => r.json())
+            .then(d => {
+                if (d.status === 1) { addToBasket(code, d.product.product_name_fr || d.product.product_name, d.product.brands, 'uncategorized', ''); toast("Trouvé !", "success"); }
+                else { pauseScannerForUnknown(code); }
+            }).catch(() => { pauseScannerForUnknown(code); });
+    }
+
+    function pauseScannerForUnknown(code) {
+        if (html5QrcodeScanner) html5QrcodeScanner.pause();
+        document.getElementById('unk-code').value  = code;
+        document.getElementById('unk-name').value  = "";
+        document.getElementById('unk-brand').value = "";
+        document.getElementById('unknown-modal').style.display = 'flex';
+    }
+
+    function confirmUnknownItem() {
+        const code     = document.getElementById('unk-code').value;
+        const name     = document.getElementById('unk-name').value || "Inconnu";
+        const brand    = document.getElementById('unk-brand').value || "";
+        const category    = document.getElementById('unk-category').value    || "uncategorized";
+        const subcategory = document.getElementById('unk-subcategory').value || "";
+        knownRefs[code] = { name, brand, category, subcategory };
+        addToBasket(code, name, brand, category, subcategory);
+        document.getElementById('unknown-modal').style.display = 'none';
+        if (html5QrcodeScanner) { html5QrcodeScanner.resume(); scanCooldown = false; }
+    }
+
+    function addToBasket(code, name, brand, category = 'uncategorized', subcategory = '') {
+        groceryBasket.unshift({ tempId: crypto.randomUUID(), barcode: code, name, brand, category, subcategory, qty: 1, dlc: "" });
+        renderGroceryBasket();
+    }
+
+    function renderGroceryBasket() {
+        document.getElementById('basket-count').textContent = groceryBasket.length;
+        const container = document.getElementById('grocery-list-container');
+        container.innerHTML = '';
+        groceryBasket.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'list-item';
+            div.innerHTML = `
+                <div class="list-item-row">
+                    <strong style="font-size:14px;">${esc(item.name)}</strong>
+                    <button class="list-btn-del" onclick="removeGrocery('${esc(item.tempId)}')">×</button>
+                </div>
+                <div class="list-item-row" style="margin-top:5px;">
+                    <div style="display:flex; align-items:center; gap:5px;"><span style="font-size:11px;">Qté:</span><input type="number" style="width:50px; padding:6px; border:1px solid #ddd; border-radius:8px; text-align:center" value="${item.qty}" min="1" onchange="updateGroceryItem('${esc(item.tempId)}', 'qty', this.value)"></div>
+                    <div style="display:flex; align-items:center; gap:5px; flex:1;"><span style="font-size:11px;">DLC:</span><input type="date" style="flex:1; padding:6px; border:1px solid #ddd; border-radius:8px;" value="${esc(item.dlc)}" onchange="updateGroceryItem('${esc(item.tempId)}', 'dlc', this.value)"></div>
+                </div>`;
+            container.appendChild(div);
+        });
+    }
+
+    function updateGroceryItem(tid, field, val) {
+        const item = groceryBasket.find(i => i.tempId === tid);
+        if (item) { if (field === 'qty') item.qty = parseInt(val) || 1; else item[field] = val; }
+    }
+    function removeGrocery(tid) { groceryBasket = groceryBasket.filter(i => i.tempId !== tid); renderGroceryBasket(); }
+    function commitGroceryBasket() {
+        if (groceryBasket.length === 0) return;
+        groceryBasket.forEach(item => { commitItemToStock(item); });
+        save(); closeGroceryModal(); toast("Courses validées !", "success");
+    }
+    function closeGroceryModal() {
+        document.getElementById('groceryModal').style.display = 'none';
+        document.getElementById('unknown-modal').style.display = 'none';
+        if (html5QrcodeScanner) html5QrcodeScanner.stop().then(() => html5QrcodeScanner.clear()).catch(() => {});
+    }
+
+    // ============================================================
+    // GESTION DLC
+    // ============================================================
+    function toggleDates(context) {
+        const chk = document.getElementById(`chk-${context}-dates`);
+        document.getElementById(`list-dates-${context}`).style.display = chk.checked ? 'grid' : 'none';
+        if (chk.checked) updateDatesList(context);
+    }
+
+    function updateDatesList(context) {
+        const qty  = parseInt(document.getElementById(context === 'create' ? 'inp-create-qty' : 'inp-stock-qty').value) || 1;
+        const area = document.getElementById(`list-dates-${context}`);
+        if (qty > 50) return;
+        let html = '';
+        for (let i = 0; i < qty; i++) html += `<div class="dlc-item"><label>Unit. ${i + 1}</label><input type="date"></div>`;
+        area.innerHTML = html;
+    }
+
+    function closeStockModal() { document.getElementById('stockAddModal').style.display = 'none'; }
+    function confirmStockAdd() {
+        const qty = parseInt(document.getElementById('inp-stock-qty').value) || 1;
+        const p   = products.find(x => x.id === currentModifyingId);
+        if (p) {
+            p.reserve_qty += qty;
+            if (document.getElementById('chk-stock-dates').checked) {
+                document.getElementById('list-dates-stock').querySelectorAll('input').forEach(inp => {
+                    p.reserve_expiries.push(inp.value || "");
+                });
+            } else {
+                for (let i = 0; i < qty; i++) p.reserve_expiries.push("");
+            }
+            // Nettoyer les dates vides superflues (garder la même quantité que reserve_qty)
+            p.reserve_expiries = p.reserve_expiries.filter((d, i) => i < p.reserve_qty || d !== "");
+            p.reserve_expiries.sort();
+            save(); keepOpen(currentModifyingId); toast(`+${qty} ajouté(s)`, "success");
+        }
+        closeStockModal();
+    }
+
+    function openEditDates(pid) {
+        currentModifyingId = pid;
+        const p = products.find(x => x.id === pid); if (!p) return;
+        const list = document.getElementById('edit-dates-list');
+        list.innerHTML = "";
+        if (p.reserve_qty === 0) {
+            list.innerHTML = "<p style='text-align:center;font-size:13px;color:#A0AEC0;'>Pas de stock en réserve.</p>";
+        } else {
+            p.reserve_expiries.forEach((date, idx) => {
+                const row = document.createElement('div');
+                row.className = 'dlc-item';
+                row.style.cssText = 'display:flex; align-items:center; gap:10px;';
+                row.innerHTML = `<label style="width:30px;">#${idx + 1}</label><input type="date" id="edit-date-${idx}" value="${esc(date)}">`;
+                list.appendChild(row);
+            });
+        }
+        document.getElementById('editDatesModal').style.display = 'flex';
+    }
+
+    function saveEditedDates() {
+        const p = products.find(x => x.id === currentModifyingId);
+        if (p) {
+            p.reserve_expiries = [];
+            document.querySelectorAll('[id^="edit-date-"]').forEach(inp => p.reserve_expiries.push(inp.value));
+            p.reserve_expiries.sort();
+            save(); keepOpen(currentModifyingId); toast("Dates mises à jour", "success");
+        }
+        document.getElementById('editDatesModal').style.display = 'none';
+    }
+
+    // ============================================================
+    // PICKER (choisir lot)
+    // ============================================================
+    function showPicker(p, mode) {
+        const box   = document.getElementById(`picker-${p.id}`);
+        const list  = document.getElementById(`picker-list-${p.id}`);
+        list.innerHTML = "";
+        box.style.display = "block";
+        p.reserve_expiries.forEach((date, idx) => {
+            const div = document.createElement('div');
+            div.className = "picker-option";
+            const span  = document.createElement('span');
+            span.textContent = date ? formatDate(date) : "Sans date";
+            const strong = document.createElement('strong');
+            strong.textContent = "choisir";
+            div.appendChild(span); div.appendChild(strong);
+            div.onclick = (e) => { e.stopPropagation(); confirmAction(p.id, idx, mode); };
+            list.appendChild(div);
+        });
+    }
+
+    function hidePicker(pid) { document.getElementById(`picker-${pid}`).style.display = "none"; }
+
+    function confirmAction(pid, dateIndex, mode) {
+        const p = products.find(x => x.id === pid);
+        if (p.reserve_qty <= 0) return;
+        let d = "";
+        if (dateIndex !== null && p.reserve_expiries[dateIndex] !== undefined) {
+            d = p.reserve_expiries[dateIndex];
+            p.reserve_expiries.splice(dateIndex, 1);
+        } else {
+            p.reserve_expiries.shift();
+        }
+        p.reserve_qty--;
+        if (mode === 'OPEN') {
+            p.open_items.push({ id: crypto.randomUUID(), opened_at: new Date().toISOString().split('T')[0], expiry: d, state: 'ENTAME' });
+            p.open_items.sort((a, b) => (a.expiry || "9999").localeCompare(b.expiry || "9999"));
+            toast("C'est ouvert ! 🥡", "success");
+        } else {
+            toast("Retiré du stock", "success");
+            // Proposer d'ajouter à la liste de courses si stock = 0
+            if (p.reserve_qty === 0 && p.open_items.length === 0) {
+                setTimeout(async () => {
+                    const ok = await showConfirm(`"${p.name}" est épuisé. L'ajouter à la liste de courses ?`, "Stock vide");
+                    if (ok) {
+                        const existing = shoppingList.find(item => item.prodId === p.id);
+                        if (existing) { existing.qty++; } else { shoppingList.push({ id: crypto.randomUUID(), prodId: p.id, qty: 1, checked: false }); }
+                        saveShopping(); toast("Ajouté à la liste 🛒", "success");
+                    }
+                }, 300);
+            }
+        }
+        save(); keepOpen(pid);
+    }
+
+    async function updateItem(pid, itemId, newState) {
+        const p = products.find(x => x.id === pid); if (!p) return;
+        if (newState === 'JETER') {
+            const ok = await showConfirm("Jeter ce produit ?", "Confirmer");
+            if (ok) { p.open_items = p.open_items.filter(i => i.id !== itemId); save(); keepOpen(pid); toast("Jeté 🗑️"); }
+        } else {
+            const it = p.open_items.find(i => i.id === itemId);
+            if (it) { it.state = newState; save(); keepOpen(pid); }
+        }
+    }
+
+    // ============================================================
+    // HELPERS
+    // ============================================================
+    function getBestDLC(p) {
+        let dates = [...p.reserve_expiries];
+        p.open_items.forEach(i => { if (i.expiry) dates.push(i.expiry); });
+        dates = dates.filter(d => d).sort();
+        return dates[0] || "9999-99-99";
+    }
+    function formatDate(iso) { if (!iso) return ""; return iso.split('-').reverse().join('/'); }
+    function formatShort(iso) { if (!iso) return ""; const s = iso.split('-'); return `${s[2]}/${s[1]}`; }
+    function toast(msg, type = "normal") { const t = document.getElementById('toast'); t.textContent = msg; t.className = "show " + type; setTimeout(() => t.className = "", 2500); }
+
+    // ============================================================
+    // MEMORY TOGGLES
+    // ============================================================
+    function toggleCategory(catId) { if (uiState.categories.has(catId)) uiState.categories.delete(catId); else uiState.categories.add(catId); render(); }
+    function toggleSub(catId, subName) { const key = `${catId}|${subName}`; if (uiState.subcats.has(key)) uiState.subcats.delete(key); else uiState.subcats.add(key); render(); }
+    function toggleCard(id) { if (uiState.products.has(id)) uiState.products.delete(id); else uiState.products.add(id); render(); }
+    function keepOpen(id) { if (!uiState.products.has(id)) uiState.products.add(id); render(); }
+
+    // ============================================================
+    // ACTIONS STOCK
+    // ============================================================
+    function act(e, pid, type) {
+        e.stopPropagation();
+        const p = products.find(x => x.id === pid); if (!p) return;
+        if (type === 'res_add') {
+            currentModifyingId = pid;
+            document.getElementById('stock-modal-name').textContent = p.name;
+            document.getElementById('inp-stock-qty').value = "1";
+            document.getElementById('chk-stock-dates').checked = false;
+            toggleDates('stock');
+            document.getElementById('stockAddModal').style.display = 'flex';
+        } else if (type === 'res_min') {
+            if (p.reserve_qty <= 0) return;
+            const hasDates = p.reserve_expiries.some(d => d !== "");
+            if (hasDates) { showPicker(p, 'REMOVE'); }
+            else {
+                showConfirm("Retirer 1 unité du stock ?").then(ok => {
+                    if (ok) { p.reserve_qty--; p.reserve_expiries.shift(); save(); keepOpen(pid); }
+                });
+            }
+        } else if (type === 'ask_open') {
+            if (p.reserve_qty <= 0) { toast("Réserve vide !", "error"); return; }
+            const dates = p.reserve_expiries.filter(d => d !== "");
+            if (dates.length === 0) confirmAction(pid, null, 'OPEN');
+            else showPicker(p, 'OPEN');
+        } else if (type === 'del') {
+            showConfirm(`Supprimer définitivement "${p.name}" ?`, "Supprimer").then(ok => {
+                if (ok) { products = products.filter(x => x.id !== pid); save(); }
+            });
+        }
+    }
+
+    // ============================================================
+    // SELECTS & SETTINGS
+    // ============================================================
+    function updateAllSelects() {
+        const catOptions = categories.map(c => `<option value="${esc(c.id)}">${esc(c.icon)} ${esc(c.name)}</option>`).join('');
+        const subOptions = `<option value="">❓ À sous-catégoriser</option>` + subcategories.map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join('');
+        ['filter-cat', 'inp-category', 'edit-category', 'unk-category'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                if (id === 'filter-cat') el.innerHTML = `<option value="all">Tout voir</option>` + catOptions;
+                else el.innerHTML = catOptions;
+            }
+        });
+        ['inp-subcategory', 'edit-subcategory', 'unk-subcategory'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.innerHTML = subOptions;
+        });
+    }
+
+    function openSettings() { renderSettingsLists(); document.getElementById('settingsModal').style.display = 'flex'; }
+    function renderSettingsLists() {
+        const listCat = document.getElementById('settings-cat-list');
+        listCat.innerHTML = categories.map((c, idx) => {
+            if (c.id === 'uncategorized') return '';
+            return `<div class="settings-list-item"><span>${esc(c.icon)} <strong>${esc(c.name)}</strong></span><button class="del-btn-small" onclick="deleteCategory(${idx})">×</button></div>`;
+        }).join('');
+        const listSub = document.getElementById('settings-subcat-list');
+        listSub.innerHTML = subcategories.map((s, idx) =>
+            `<div class="settings-list-item"><span>${esc(s)}</span><button class="del-btn-small" onclick="deleteSubCategory(${idx})">×</button></div>`
+        ).join('');
+    }
+
+    async function createNewCategory() {
+        const result = await showPrompt("Nouvelle catégorie", "Nom (ex: Surgelés)", "Emoji (ex: 🧊)");
+        if (!result) return;
+        const [name, icon] = result;
+        if (!name) return;
+        const hue = Math.floor(Math.random() * 360);
+        categories.push({ id: 'cat_' + Date.now(), name, icon: icon || '📦', color: `hsl(${hue}, 70%, 90%)`, text: `hsl(${hue}, 70%, 20%)` });
+        save(); updateAllSelects(); renderSettingsLists();
+    }
+
+    async function deleteCategory(idx) {
+        const ok = await showConfirm(`Supprimer la catégorie "${categories[idx].name}" ?`);
+        if (!ok) return;
+        const deletedId = categories[idx].id;
+        categories.splice(idx, 1);
+        products.forEach(p => { if (p.category === deletedId) p.category = 'uncategorized'; });
+        save(); updateAllSelects(); renderSettingsLists();
+    }
+
+    async function createNewSubCategory() {
+        const name = await showPrompt("Nouvelle sous-catégorie", "Nom (ex: Surgelés)");
+        if (!name) return;
+        if (subcategories.includes(name)) { toast("Existe déjà !", "error"); return; }
+        subcategories.push(name); subcategories.sort();
+        save(); updateAllSelects(); renderSettingsLists();
+    }
+
+    async function deleteSubCategory(idx) {
+        const ok = await showConfirm(`Supprimer la sous-catégorie "${subcategories[idx]}" ?`);
+        if (!ok) return;
+        const name = subcategories[idx];
+        subcategories.splice(idx, 1);
+        products.forEach(p => { if (p.subcategory === name) p.subcategory = ""; });
+        save(); updateAllSelects(); renderSettingsLists();
+    }
+
+    function openEditProduct(pid) {
+        currentModifyingId = pid;
+        const p = products.find(x => x.id === pid); if (!p) return;
+        document.getElementById('edit-name').value      = p.name;
+        document.getElementById('edit-brand').value     = p.brand;
+        document.getElementById('edit-category').value  = p.category    || 'uncategorized';
+        document.getElementById('edit-subcategory').value = p.subcategory || '';
+        document.getElementById('editProductModal').style.display = 'flex';
+    }
+
+    function saveEditedProduct() {
+        const p = products.find(x => x.id === currentModifyingId);
+        if (p) {
+            p.name       = document.getElementById('edit-name').value;
+            p.brand      = document.getElementById('edit-brand').value;
+            p.category   = document.getElementById('edit-category').value;
+            p.subcategory = document.getElementById('edit-subcategory').value;
+            if (p.barcode) knownRefs[p.barcode] = { name: p.name, brand: p.brand, category: p.category, subcategory: p.subcategory };
+            save(); keepOpen(currentModifyingId); toast("Mis à jour", "success");
+        }
+        document.getElementById('editProductModal').style.display = 'none';
+    }
+
+    // ============================================================
+    // MODAL AJOUT MULTI-PRODUITS
+    // ============================================================
+    function openAddModal() { document.getElementById('addModal').style.display = 'flex'; tempBasket = []; resetForm(); switchViewModal('form'); }
+
+    function resetForm() {
+        document.getElementById('inp-barcode').value = "";
+        document.getElementById('inp-name').value    = "";
+        document.getElementById('inp-brand').value   = "";
+        document.getElementById('inp-create-qty').value = "1";
+        document.getElementById('chk-create-dates').checked = false;
+        document.getElementById('inp-category').value    = "uncategorized";
+        document.getElementById('inp-subcategory').value = "";
+        toggleDates('create');
+        document.getElementById('scan-result-badge').textContent = "";
+        document.getElementById('scanner-wrapper').style.display = 'none';
+        document.getElementById('reader').innerHTML = "";
+        document.getElementById('reader').classList.remove('scanned');
+        if (html5QrcodeScanner) html5QrcodeScanner.stop().catch(() => {});
+        updateBtnLabel();
+    }
+
+    function switchViewModal(viewName) {
+        document.getElementById('view-form').style.display  = viewName === 'form'  ? 'block' : 'none';
+        document.getElementById('view-recap').style.display = viewName === 'recap' ? 'block' : 'none';
+        document.getElementById('modal-title').textContent  = viewName === 'form'  ? 'Ajouter' : 'Panier';
+        const footer = document.getElementById('modal-footer-actions');
+        if (viewName === 'form') {
+            const btnText = tempBasket.length > 0 ? `Valider panier (${tempBasket.length})` : "Enregistrer";
+            footer.innerHTML = `<button class="btn btn-secondary" onclick="nextProduct()">Suivant ➡️</button><button class="btn btn-primary" style="flex:1" onclick="finishTransaction()">${btnText}</button>`;
+        } else {
+            footer.innerHTML = `<button class="btn btn-ghost" onclick="backToForm()">⬅️ Retour</button><button class="btn btn-primary" style="flex:1" onclick="saveAllBasket()">Tout Confirmer ✅</button>`;
+        }
+    }
+
+    function updateBtnLabel() {
+        const btn = document.querySelector('#modal-footer-actions .btn-primary');
+        if (btn && document.getElementById('view-form').style.display !== 'none') {
+            btn.textContent = tempBasket.length > 0 ? `Valider panier (${tempBasket.length})` : "Enregistrer";
+        }
+    }
+
+    function nextProduct() {
+        const item = getFormData(); if (!item) return;
+        addToTempBasket(item); resetForm(); switchViewModal('form'); toast("Ajouté !", "success");
+    }
+
+    function finishTransaction() {
+        const currentItem = getFormData(false);
+        if (currentItem) addToTempBasket(currentItem);
+        else if (tempBasket.length === 0) { toast("Rien à enregistrer", "error"); return; }
+        if (tempBasket.length === 1 && currentItem && tempBasket[0].qty === currentItem.qty) saveSingleProduct(tempBasket[0]);
+        else { renderRecap(); switchViewModal('recap'); }
+    }
+
+    function addToTempBasket(item) {
+        const existingIndex = tempBasket.findIndex(i => (item.barcode && i.barcode === item.barcode) || (!item.barcode && i.name === item.name));
+        if (existingIndex > -1) {
+            tempBasket[existingIndex].qty += item.qty;
+            tempBasket[existingIndex].dates = tempBasket[existingIndex].dates.concat(item.dates);
+        } else tempBasket.push(item);
+    }
+
+    function getFormData(notify = true) {
+        const name = document.getElementById('inp-name').value.trim();
+        if (!name) { if (notify) toast("Nom obligatoire", "error"); return null; }
+        const qty         = parseInt(document.getElementById('inp-create-qty').value) || 1;
+        const bc          = document.getElementById('inp-barcode').value.trim();
+        const brand       = document.getElementById('inp-brand').value.trim();
+        const category    = document.getElementById('inp-category').value;
+        const subcategory = document.getElementById('inp-subcategory').value;
+        let dates = [];
+        if (document.getElementById('chk-create-dates').checked) {
+            document.getElementById('list-dates-create').querySelectorAll('input').forEach(i => dates.push(i.value || ""));
+        } else {
+            for (let i = 0; i < qty; i++) dates.push("");
+        }
+        if (bc) knownRefs[bc] = { name, brand, category, subcategory };
+        return { id: crypto.randomUUID(), barcode: bc, name, brand, category, subcategory, qty, dates };
+    }
+
+    function saveSingleProduct(item) { commitItemToStock(item); tempBasket = []; save(); closeModal(); toast("Enregistré !", "success"); }
+
+    function renderRecap() {
+        const container = document.getElementById('recap-container');
+        container.innerHTML = '';
+        tempBasket.forEach((item, idx) => {
+            const div = document.createElement('div');
+            div.className = 'list-item';
+            div.innerHTML = `
+                <div class="list-item-row">
+                    <input type="text" class="inp-pop" style="padding:10px; font-weight:600;" value="${esc(item.name)}" onchange="updateBasket(${idx}, 'name', this.value)">
+                    <button class="list-btn-del" onclick="removeFromBasket(${idx})">×</button>
+                </div>
+                <div class="list-item-row" style="margin-top:8px;">
+                    <input type="text" class="inp-pop" style="padding:8px; font-size:13px; width:50%;" value="${esc(item.brand)}" placeholder="Marque" onchange="updateBasket(${idx}, 'brand', this.value)">
+                    <div style="display:flex; align-items:center; gap:5px;">
+                        <span style="font-size:12px; font-weight:600;">Qté:</span>
+                        <input type="number" class="inp-pop" style="padding:8px; width:60px; text-align:center;" value="${item.qty}" min="1" onchange="updateBasketQty(${idx}, this.value)">
+                    </div>
+                </div>`;
+            container.appendChild(div);
+        });
+    }
+
+    function updateBasket(idx, field, val) { tempBasket[idx][field] = val; }
+    function updateBasketQty(idx, val) { tempBasket[idx].qty = parseInt(val) || 1; renderRecap(); }
+    function removeFromBasket(idx) { tempBasket.splice(idx, 1); if (tempBasket.length === 0) backToForm(); else renderRecap(); }
+    function backToForm() { switchViewModal('form'); updateBtnLabel(); }
+    function saveAllBasket() { tempBasket.forEach(item => commitItemToStock(item)); tempBasket = []; switchViewModal('form'); document.getElementById('recap-container').innerHTML = ""; save(); closeModal(); toast("Tout enregistré !", "success"); }
+
+    function commitItemToStock(item) {
+        const finalCat = item.category || 'uncategorized';
+        const finalSub = item.subcategory || "";
+        if (item.barcode) knownRefs[item.barcode] = { name: item.name, brand: item.brand, category: finalCat, subcategory: finalSub };
+        let existing = item.barcode ? products.find(p => p.barcode === item.barcode) : products.find(p => p.name === item.name);
+        if (existing) {
+            existing.name       = item.name;
+            existing.brand      = item.brand;
+            existing.category   = finalCat;
+            existing.subcategory = finalSub;
+            existing.reserve_qty += item.qty;
+            // Filtrer les dates vides en trop pour ne garder que des DLC réelles
+            const validDates = (item.dates || []).filter(d => d !== "");
+            existing.reserve_expiries = existing.reserve_expiries.concat(validDates);
+            existing.reserve_expiries.sort();
+        } else {
+            const validDates = (item.dates || []).filter(d => d !== "");
+            products.push({
+                id: crypto.randomUUID(),
+                barcode: item.barcode,
+                name: item.name,
+                brand: item.brand,
+                category: finalCat,
+                subcategory: finalSub,
+                reserve_qty: item.qty,
+                reserve_expiries: validDates,
+                open_items: []
+            });
+        }
+    }
+
+    // ============================================================
+    // NETTOYAGE knownRefs (purge entrées sans produit actif)
+    // ============================================================
+    function purgeKnownRefs() {
+        const activeBarcodes = new Set(products.map(p => p.barcode).filter(Boolean));
+        let count = 0;
+        Object.keys(knownRefs).forEach(k => { if (!activeBarcodes.has(k)) { delete knownRefs[k]; count++; } });
+        return count;
+    }
+
+    window.onload = async function() {
+        await load();
+        purgeKnownRefs();
+    };
+</script>
+</body>
+</html>
