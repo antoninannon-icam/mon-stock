@@ -1596,8 +1596,10 @@ async function startH5(my){
   const F = window.Html5QrcodeSupportedFormats;
   const h = new Html5Qrcode('reader', { verbose: false, formatsToSupport: F ? [F.EAN_13, F.EAN_8, F.UPC_A, F.UPC_E, F.CODE_128, F.CODE_39, F.ITF, F.QR_CODE] : undefined, experimentalFeatures: { useBarCodeDetectorIfSupported: true } });
   Cam.h5 = h;
+  const z = L.zoom || 2;
   await h.start({ facingMode: 'environment' }, {
     fps: 15, aspectRatio: 1.777778,
+    videoConstraints: { facingMode: 'environment', aspectRatio: 1.777778, advanced: [{ zoom: z }] },
     qrbox: (w, hh) => ({ width: Math.max(120, Math.floor(w * 0.75)), height: Math.max(60, Math.min(140, Math.floor(hh * 0.4))) })
   }, (txt, res) => onDetect(txt, res && res.result && res.result.format && res.result.format.formatName), () => {});
   if (my !== Cam.sess){ try { await h.stop(); h.clear(); } catch {} return; }
@@ -1652,6 +1654,12 @@ function initZoom(){
   b.hidden = false;
   // Par défaut 2× (le niveau le plus proche si le téléphone ne monte pas jusqu'à 2) ; ensuite, le choix de l'utilisateur est retenu
   const def = zoomLevels.reduce((a, c) => Math.abs(c - 2) < Math.abs(a - 2) ? c : a);
+  if (Cam.h5){
+    let cur = def; try { cur = (Cam.h5.getRunningTrackSettings() || {}).zoom || cur; } catch {}
+    L.zoom = zoomLevels.reduce((a, c) => Math.abs(c - cur) < Math.abs(a - cur) ? c : a); saveLocalPrefs();
+    b.textContent = (Math.round(L.zoom * 10) / 10) + '×'; b.classList.toggle('on', L.zoom > 1);
+    return;
+  }
   setZoom(zoomLevels.includes(L.zoom) ? L.zoom : def, true);
 }
 async function setZoom(level, silent){
@@ -1659,7 +1667,11 @@ async function setZoom(level, silent){
   L.zoom = level; saveLocalPrefs();
   const b = $('#btn-zoom'); b.textContent = (Math.round(level * 10) / 10) + '×'; b.classList.toggle('on', level > 1);
 }
-function cycleZoom(){ const i = zoomLevels.indexOf(L.zoom); setZoom(zoomLevels[(i + 1) % zoomLevels.length]); }
+async function cycleZoom(){
+  const i = zoomLevels.indexOf(L.zoom), next = zoomLevels[(i + 1) % zoomLevels.length];
+  if (Cam.h5){ L.zoom = next; saveLocalPrefs(); await stopCamera(); startCamera(); return; }
+  setZoom(next);
+}
 // Toucher l'image relance la mise au point
 async function refocus(){
   const f = camCaps().focusMode || [];
