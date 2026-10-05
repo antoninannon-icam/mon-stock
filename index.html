@@ -254,6 +254,7 @@ select.input{-webkit-appearance:auto;appearance:auto;padding-right:8px}
 /* Lecteur de secours : affichage d'origine, simplement centré dans l'encadré */
 #reader{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);border:0!important}
 #reader video{display:block;width:100%!important}
+#reader #qr-shaded-region{display:none!important}
 .frame{position:absolute;left:12%;right:12%;top:25%;bottom:25%;z-index:1;border:2px solid rgba(255,255,255,.9);border-radius:12px;box-shadow:0 0 0 999px rgba(0,0,0,.22);pointer-events:none}
 .frame::after{content:'';position:absolute;left:5%;right:5%;top:50%;height:2px;background:rgba(255,90,80,.85)}
 .flash{position:absolute;inset:0;z-index:1;pointer-events:none;opacity:0;transition:opacity .35s}
@@ -1500,7 +1501,7 @@ function pauseScan(label){
 function resumeScan(){
   scanPaused = false; lastScan = { code: '', t: 0 };
   $('#cam-pause').hidden = true;
-  if (Cam.track) $('#frame').hidden = false;
+  if (Cam.track || Cam.h5) $('#frame').hidden = false;
 }
 function onDetect(raw, format, fromKeyboard){
   if (scanPaused && !fromKeyboard) return;
@@ -1592,7 +1593,7 @@ async function startH5(my){
     catch { throw 'Lecteur indisponible (pas de connexion ?). Saisis le code à la main.'; }
   }
   if (my !== Cam.sess) return;
-  $('#reader').hidden = false; $('#frame').hidden = true;
+  $('#reader').hidden = false; $('#frame').hidden = false;
   const F = window.Html5QrcodeSupportedFormats;
   const h = new Html5Qrcode('reader', { verbose: false, formatsToSupport: F ? [F.EAN_13, F.EAN_8, F.UPC_A, F.UPC_E, F.CODE_128, F.CODE_39, F.ITF, F.QR_CODE] : undefined, experimentalFeatures: { useBarCodeDetectorIfSupported: true } });
   Cam.h5 = h;
