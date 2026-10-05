@@ -252,9 +252,8 @@ select.input{-webkit-appearance:auto;appearance:auto;padding-right:8px}
 .camera{position:relative;background:#0F1312;border-radius:var(--r);overflow:hidden;aspect-ratio:16/9;max-height:30vh;min-height:150px;width:100%;margin-bottom:8px}
 .camera video{display:block;width:100%;height:100%;object-fit:cover}
 /* Lecteur de secours : affichage d'origine, simplement centré dans l'encadré */
-#reader{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);border:0!important}
+#reader{position:absolute;left:0;right:0;top:0;border:0!important}
 #reader video{display:block;width:100%!important}
-#reader #qr-shaded-region{display:none!important}
 .frame{position:absolute;left:12%;right:12%;top:25%;bottom:25%;z-index:1;border:2px solid rgba(255,255,255,.9);border-radius:12px;box-shadow:0 0 0 999px rgba(0,0,0,.22);pointer-events:none}
 .frame::after{content:'';position:absolute;left:5%;right:5%;top:50%;height:2px;background:rgba(255,90,80,.85)}
 .flash{position:absolute;inset:0;z-index:1;pointer-events:none;opacity:0;transition:opacity .35s}
@@ -1501,7 +1500,7 @@ function pauseScan(label){
 function resumeScan(){
   scanPaused = false; lastScan = { code: '', t: 0 };
   $('#cam-pause').hidden = true;
-  if (Cam.track || Cam.h5) $('#frame').hidden = false;
+  if (Cam.track) $('#frame').hidden = false;
 }
 function onDetect(raw, format, fromKeyboard){
   if (scanPaused && !fromKeyboard) return;
@@ -1593,7 +1592,7 @@ async function startH5(my){
     catch { throw 'Lecteur indisponible (pas de connexion ?). Saisis le code à la main.'; }
   }
   if (my !== Cam.sess) return;
-  $('#reader').hidden = false; $('#frame').hidden = false;
+  $('#reader').hidden = false; $('#frame').hidden = true;
   const F = window.Html5QrcodeSupportedFormats;
   const h = new Html5Qrcode('reader', { verbose: false, formatsToSupport: F ? [F.EAN_13, F.EAN_8, F.UPC_A, F.UPC_E, F.CODE_128, F.CODE_39, F.ITF, F.QR_CODE] : undefined, experimentalFeatures: { useBarCodeDetectorIfSupported: true } });
   Cam.h5 = h;
@@ -1601,7 +1600,24 @@ async function startH5(my){
     fps: 15, aspectRatio: 1.777778,
     qrbox: (w, hh) => ({ width: Math.max(120, Math.floor(w * 0.75)), height: Math.max(60, Math.min(140, Math.floor(hh * 0.4))) })
   }, (txt, res) => onDetect(txt, res && res.result && res.result.format && res.result.format.formatName), () => {});
-  if (my !== Cam.sess){ try { await h.stop(); h.clear(); } catch {} }
+  if (my !== Cam.sess){ try { await h.stop(); h.clear(); } catch {} return; }
+  centerReader();
+  [150, 500, 1200].forEach(t => setTimeout(centerReader, t));
+  if (window.ResizeObserver){ if (!Cam.ro) Cam.ro = new ResizeObserver(centerReader); Cam.ro.observe($('#reader')); }
+}
+// Place le centre du cadre gris du lecteur au milieu de l'encadré (sans toucher au lecteur lui-même)
+function centerReader(){
+  const r = $('#reader'), cam = $('#camera');
+  if (!r || r.hidden) return;
+  const rr = r.getBoundingClientRect(), ch = cam.getBoundingClientRect().height;
+  let cy = rr.height / 2;
+  const reg = r.querySelector('#qr-shaded-region');
+  if (reg){
+    const g = reg.getBoundingClientRect(), cs = getComputedStyle(reg);
+    const bt = parseFloat(cs.borderTopWidth) || 0, bb = parseFloat(cs.borderBottomWidth) || 0;
+    cy = (g.top - rr.top) + bt + (g.height - bt - bb) / 2;
+  }
+  r.style.top = Math.round(ch / 2 - cy) + 'px';
 }
 async function stopCamera(){
   Cam.sess++;
@@ -1611,7 +1627,8 @@ async function stopCamera(){
   const v = $('#cam-video'); v.srcObject = null; v.hidden = true;
   $('#frame').hidden = true;
   if (Cam.h5){ const h = Cam.h5; Cam.h5 = null; try { await h.stop(); } catch {} try { h.clear(); } catch {} }
-  $('#reader').hidden = true;
+  $('#reader').hidden = true; $('#reader').style.top = '';
+  if (Cam.ro) Cam.ro.disconnect();
   $('#btn-torch').hidden = true;
   $('#btn-zoom').hidden = true;
 }
