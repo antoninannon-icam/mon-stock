@@ -250,13 +250,10 @@ select.input{-webkit-appearance:auto;appearance:auto;padding-right:8px}
 /* Scanner */
 .scan-head{align-items:center}
 .camera{position:relative;background:#0F1312;border-radius:var(--r);overflow:hidden;aspect-ratio:16/9;max-height:30vh;min-height:150px;width:100%;margin-bottom:8px}
-.camera video{display:block;width:100%;height:100%;object-fit:cover}
-.camera.h5{aspect-ratio:auto;max-height:34vh}
-#reader{width:100%}
-#reader video{display:block;width:100%!important}
-.frame{position:absolute;left:10%;right:10%;top:22%;bottom:22%;border:2px solid rgba(255,255,255,.9);border-radius:12px;box-shadow:0 0 0 999px rgba(0,0,0,.22);pointer-events:none}
+.camera video{position:absolute;inset:0;display:block;width:100%;height:100%;object-fit:cover;transform-origin:center;transition:transform .15s}
+.frame{position:absolute;left:8%;right:8%;top:18%;bottom:18%;z-index:1;border:2px solid rgba(255,255,255,.9);border-radius:12px;box-shadow:0 0 0 999px rgba(0,0,0,.22);pointer-events:none}
 .frame::after{content:'';position:absolute;left:5%;right:5%;top:50%;height:2px;background:rgba(255,90,80,.85)}
-.flash{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .35s}
+.flash{position:absolute;inset:0;z-index:1;pointer-events:none;opacity:0;transition:opacity .35s}
 .flash.ok{background:rgba(46,125,79,.5);opacity:1;transition:none}
 .flash.warn{background:rgba(161,92,7,.5);opacity:1;transition:none}
 .flash.err{background:rgba(179,38,30,.5);opacity:1;transition:none}
@@ -266,10 +263,10 @@ select.input{-webkit-appearance:auto;appearance:auto;padding-right:8px}
 .zoom{position:absolute;bottom:10px;right:58px;height:40px;min-width:48px;padding:0 12px;border-radius:20px;border:0;background:rgba(0,0,0,.45);color:#fff;font-weight:600;font-size:15px;cursor:pointer}
 .zoom.on{background:#fff;color:#1E2422}
 .torch,.zoom{z-index:2}
-.cam-pause{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:rgba(15,19,18,.62);cursor:pointer;padding:16px;text-align:center}
+.cam-pause{position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:rgba(15,19,18,.62);cursor:pointer;padding:16px;text-align:center}
 .cam-pause .btn{height:50px;padding:0 22px;font-size:16px}
 .cam-pause-name{color:#fff;font-weight:600;font-size:15px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.camera-idle{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;text-align:center;padding:16px;color:#C9D0CD;font-size:14px;background:#0F1312}
+.camera-idle{position:absolute;inset:0;z-index:4;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;text-align:center;padding:16px;color:#C9D0CD;font-size:14px;background:#0F1312}
 .scan-status{min-height:22px;font-size:14.5px;color:var(--ink-2);font-weight:500}
 .scan-status[data-type=ok]{color:var(--ok)}
 .scan-status[data-type=err]{color:var(--bad)}
@@ -434,8 +431,7 @@ body.has-cta .toast{bottom:calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 
     <div class="sheet-body">
       <div class="scan-top">
       <div class="camera" id="camera">
-        <video id="cam-video" playsinline muted hidden></video>
-        <div id="reader" hidden></div>
+        <video id="cam-video" playsinline muted autoplay hidden></video>
         <div class="frame" id="frame" hidden></div>
         <div class="flash" id="flash"></div>
         <button class="torch" id="btn-torch" aria-label="Lampe" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3h8l-1.5 5h-5zM9.5 8h5v12a1.5 1.5 0 0 1-1.5 1.5h-2A1.5 1.5 0 0 1 9.5 20z"/><path d="M12 12v2.5"/></svg></button>
@@ -1455,7 +1451,7 @@ function applyDlc(key, iso){
 // ============================================================
 let scanMode = 'in', basket = [], outLog = [], expandedTid = null;
 let lastScan = { code: '', t: 0 };
-const Cam = { sess: 0, stream: null, track: null, h5: null, loopT: null, running: false, torch: false };
+const Cam = { sess: 0, stream: null, track: null, loopT: null, running: false, torch: false, zoom: 1, digital: false };
 const MODE_HINT = {
   in: 'Scanne tes courses, elles s\'ajoutent ci-dessous.',
   open: 'Scanne un produit que tu ouvres.',
@@ -1500,7 +1496,7 @@ function pauseScan(label){
 function resumeScan(){
   scanPaused = false; lastScan = { code: '', t: 0 };
   $('#cam-pause').hidden = true;
-  if (Cam.track) $('#frame').hidden = false;
+  if (Cam.running) $('#frame').hidden = false;
 }
 function onDetect(raw, format, fromKeyboard){
   if (scanPaused && !fromKeyboard) return;
@@ -1521,130 +1517,121 @@ function onDetect(raw, format, fromKeyboard){
 }
 
 function loadScript(src){ return new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s); }); }
-async function nativeFormats(){
-  if (!('BarcodeDetector' in window)) return null;
-  try {
-    const sup = await BarcodeDetector.getSupportedFormats();
-    const ok = ['ean_13','ean_8','upc_a','upc_e','code_128','code_39','itf','qr_code'].filter(f => sup.includes(f));
-    return ok.includes('ean_13') ? ok : null;
-  } catch { return null; }
+// Un seul moteur pour tous les téléphones : notre propre vidéo + notre cadre.
+// Lecteur intégré du téléphone s'il existe (Android), sinon lecteur ZXing équivalent chargé à la demande (iPhone, Firefox).
+const WANTED_FORMATS = ['ean_13','ean_8','upc_a','upc_e','code_128','code_39','itf','qr_code'];
+const ZXING_URL = 'https://cdn.jsdelivr.net/npm/barcode-detector@3.2.2/dist/iife/ponyfill.js';
+async function getDetector(){
+  if ('BarcodeDetector' in window){
+    try {
+      const sup = await BarcodeDetector.getSupportedFormats();
+      if (sup.includes('ean_13')) return { det: new BarcodeDetector({ formats: WANTED_FORMATS.filter(f => sup.includes(f)) }), native: true };
+    } catch {}
+  }
+  if (!window.BarcodeDetectionAPI){
+    try { await loadScript(ZXING_URL); }
+    catch { throw 'Lecteur indisponible (pas de connexion ?). Tape le code-barres à la main.'; }
+  }
+  return { det: new window.BarcodeDetectionAPI.BarcodeDetector({ formats: WANTED_FORMATS }), native: false };
 }
 async function startCamera(){
   if (Cam.running) return;
   const my = ++Cam.sess;
   camUI('Démarrage de la caméra…', false);
   try {
-    const formats = await nativeFormats();
+    const { det, native } = await getDetector();
     if (my !== Cam.sess) return;
-    if (formats) await startNative(my, formats); else await startH5(my);
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } } });
+    if (my !== Cam.sess){ stream.getTracks().forEach(t => t.stop()); return; }
+    Cam.stream = stream; Cam.track = stream.getVideoTracks()[0];
+    try {
+      const c = Cam.track.getCapabilities ? Cam.track.getCapabilities() : {};
+      if (c.focusMode && c.focusMode.includes('continuous')) await Cam.track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] });
+    } catch {}
+    const v = $('#cam-video');
+    v.srcObject = stream; v.hidden = false;
+    await v.play();
     if (my !== Cam.sess) return;
     Cam.running = true; camUI(null);
+    if (!scanPaused) $('#frame').hidden = false;
     updateTorch(); initZoom();
     if (scanPaused) pauseScan($('#cam-pause-name').textContent);
+    detectLoop(my, det, native);
   } catch (e) {
     console.warn('Caméra', e);
     if (my !== Cam.sess) return;
     await stopCamera();
-    camUI(typeof e === 'string' ? e : "Caméra inaccessible. Autorise l'accès à la caméra dans le navigateur, ou saisis le code à la main.", true);
+    camUI(typeof e === 'string' ? e : "Caméra inaccessible. Autorise l'accès à la caméra dans le navigateur, ou tape le code à la main.", true);
   }
 }
-// Lecteur natif du téléphone (Chrome Android, Edge…) : beaucoup plus rapide et précis
-async function startNative(my, formats){
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } } });
-  if (my !== Cam.sess){ stream.getTracks().forEach(t => t.stop()); return; }
-  Cam.stream = stream; Cam.track = stream.getVideoTracks()[0];
-  try {
-    const c = Cam.track.getCapabilities ? Cam.track.getCapabilities() : {};
-    if (c.focusMode && c.focusMode.includes('continuous')) await Cam.track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] });
-  } catch {}
+// Zone de l'image réellement visible dans le cadre blanc (en pixels de la vidéo)
+function frameRegion(v){
+  const box = $('#camera').getBoundingClientRect(), vw = v.videoWidth, vh = v.videoHeight;
+  const z = Cam.digital ? Cam.zoom : 1;
+  const sc = Math.max(box.width / vw, box.height / vh) * z;          // object-fit: cover + zoom numérique
+  const visW = box.width / sc, visH = box.height / sc;
+  const w = visW * 0.84, h = visH * 0.64;                              // = position du cadre (8 % / 18 % de marge)
+  return { x: (vw - w) / 2, y: (vh - h) / 2, w, h };
+}
+function detectLoop(my, det, native){
   const v = $('#cam-video');
-  v.srcObject = stream; v.hidden = false; $('#frame').hidden = false; $('#camera').classList.remove('h5');
-  await v.play();
-  const det = new BarcodeDetector({ formats });
-  const cv = document.createElement('canvas'), cx = cv.getContext('2d');
+  const cv = document.createElement('canvas'), cx = cv.getContext('2d', { willReadFrequently: true });
   let busy = false, n = 0;
   const tick = async () => {
     if (my !== Cam.sess) return;
-    if (!busy && !scanPaused && v.readyState >= 2){
+    if (!busy && !scanPaused && v.readyState >= 2 && v.videoWidth){
       busy = true;
       try {
-        let r = await det.detect(v);
-        // Une fois sur deux : on agrandit le centre de l'image, ce qui aide pour les petits codes
-        if (!r.length && (n++ % 2) && v.videoWidth){
-          const vw = v.videoWidth, vh = v.videoHeight, cw = Math.round(vw * 0.5), ch = Math.round(vh * 0.4);
-          cv.width = cw * 2; cv.height = ch * 2;
-          cx.drawImage(v, (vw - cw) / 2, (vh - ch) / 2, cw, ch, 0, 0, cv.width, cv.height);
+        let r = [];
+        // Lecteur intégré sans zoom numérique : on essaie aussi l'image entière (rapide)
+        if (native && !Cam.digital && n % 2 === 0) r = await det.detect(v);
+        if (!r.length){
+          // Le contenu du cadre, agrandi si besoin : plus rapide et meilleur pour les petits codes
+          const f = frameRegion(v), up = Math.min(2.5, Math.max(1, 1100 / f.w));
+          cv.width = Math.round(f.w * up); cv.height = Math.round(f.h * up);
+          cx.drawImage(v, f.x, f.y, f.w, f.h, 0, 0, cv.width, cv.height);
           r = await det.detect(cv);
         }
+        n++;
         if (r.length && my === Cam.sess) onDetect(r[0].rawValue, r[0].format);
       } catch {}
       busy = false;
     }
-    Cam.loopT = setTimeout(tick, 70);
+    Cam.loopT = setTimeout(tick, native ? 70 : 120);
   };
   tick();
-}
-// Repli (iPhone, Firefox) : html5-qrcode, chargé seulement si nécessaire
-async function startH5(my){
-  if (typeof Html5Qrcode === 'undefined'){
-    try { await loadScript('https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js'); }
-    catch { throw 'Lecteur indisponible (pas de connexion ?). Saisis le code à la main.'; }
-  }
-  if (my !== Cam.sess) return;
-  $('#reader').hidden = false; $('#camera').classList.add('h5'); $('#frame').hidden = true;
-  const F = window.Html5QrcodeSupportedFormats;
-  const h = new Html5Qrcode('reader', { verbose: false, formatsToSupport: F ? [F.EAN_13, F.EAN_8, F.UPC_A, F.UPC_E, F.CODE_128, F.CODE_39, F.ITF, F.QR_CODE] : undefined, experimentalFeatures: { useBarCodeDetectorIfSupported: true } });
-  Cam.h5 = h;
-  await h.start({ facingMode: 'environment' }, {
-    fps: 15, aspectRatio: 1.333,
-    qrbox: (w, hh) => ({ width: Math.max(80, Math.floor(w * 0.88)), height: Math.max(60, Math.floor(Math.min(hh * 0.45, 200))) }),
-    videoConstraints: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } }
-  }, (txt, res) => onDetect(txt, res && res.result && res.result.format && res.result.format.formatName), () => {});
-  if (my !== Cam.sess){ try { await h.stop(); h.clear(); } catch {} }
 }
 async function stopCamera(){
   Cam.sess++;
   clearTimeout(Cam.loopT);
   Cam.running = false; Cam.torch = false;
   if (Cam.stream){ Cam.stream.getTracks().forEach(t => t.stop()); Cam.stream = null; Cam.track = null; }
-  const v = $('#cam-video'); v.srcObject = null; v.hidden = true;
+  const v = $('#cam-video'); v.srcObject = null; v.hidden = true; v.style.transform = '';
   $('#frame').hidden = true;
-  if (Cam.h5){ const h = Cam.h5; Cam.h5 = null; try { await h.stop(); } catch {} try { h.clear(); } catch {} }
-  $('#reader').hidden = true;
   $('#btn-torch').hidden = true;
   $('#btn-zoom').hidden = true;
 }
-function torchCaps(){
-  try {
-    if (Cam.track && Cam.track.getCapabilities) return !!Cam.track.getCapabilities().torch;
-    if (Cam.h5 && Cam.h5.getRunningTrackCapabilities) return !!Cam.h5.getRunningTrackCapabilities().torch;
-  } catch {}
-  return false;
-}
-function camCaps(){
-  try {
-    if (Cam.track && Cam.track.getCapabilities) return Cam.track.getCapabilities();
-    if (Cam.h5 && Cam.h5.getRunningTrackCapabilities) return Cam.h5.getRunningTrackCapabilities();
-  } catch {}
-  return {};
-}
-async function camApply(c){
-  if (Cam.track) return Cam.track.applyConstraints({ advanced: [c] });
-  if (Cam.h5) return Cam.h5.applyVideoConstraints({ advanced: [c] });
-}
+function camCaps(){ try { return (Cam.track && Cam.track.getCapabilities) ? Cam.track.getCapabilities() : {}; } catch { return {}; } }
+async function camApply(c){ if (Cam.track) return Cam.track.applyConstraints({ advanced: [c] }); }
+function torchCaps(){ return !!camCaps().torch; }
+// Zoom : celui de l'appareil photo s'il existe, sinon zoom numérique (iPhone) — même bouton, même rendu
 let zoomLevels = [1];
 function initZoom(){
   const z = camCaps().zoom, b = $('#btn-zoom');
-  if (!z || !(z.max >= 1.5)){ b.hidden = true; return; }
-  zoomLevels = [1, 2, 3].map(x => Math.max(z.min || 1, Math.min(z.max, x))).filter((x, i, a) => a.indexOf(x) === i);
+  Cam.digital = !(z && z.max >= 1.5);
+  zoomLevels = Cam.digital ? [1, 2, 3] : [1, 2, 3].map(x => Math.max(z.min || 1, Math.min(z.max, x))).filter((x, i, a) => a.indexOf(x) === i);
   b.hidden = false;
   // Par défaut 2× (le niveau le plus proche si le téléphone ne monte pas jusqu'à 2) ; ensuite, le choix de l'utilisateur est retenu
-  const def = zoomLevels.reduce((a, b) => Math.abs(b - 2) < Math.abs(a - 2) ? b : a);
+  const def = zoomLevels.reduce((a, c) => Math.abs(c - 2) < Math.abs(a - 2) ? c : a);
   setZoom(zoomLevels.includes(L.zoom) ? L.zoom : def, true);
 }
 async function setZoom(level, silent){
-  try { await camApply({ zoom: level }); } catch { if (!silent) toast('Zoom indisponible'); return; }
-  L.zoom = level; saveLocalPrefs();
+  if (Cam.digital){
+    $('#cam-video').style.transform = level > 1 ? `scale(${level})` : '';
+  } else {
+    try { await camApply({ zoom: level }); } catch { if (!silent) toast('Zoom indisponible'); return; }
+  }
+  Cam.zoom = level; L.zoom = level; saveLocalPrefs();
   const b = $('#btn-zoom'); b.textContent = (Math.round(level * 10) / 10) + '×'; b.classList.toggle('on', level > 1);
 }
 function cycleZoom(){ const i = zoomLevels.indexOf(L.zoom); setZoom(zoomLevels[(i + 1) % zoomLevels.length]); }
@@ -1658,11 +1645,7 @@ async function refocus(){
 function updateTorch(){ const b = $('#btn-torch'); b.hidden = !torchCaps(); b.classList.toggle('on', Cam.torch); }
 async function toggleTorch(){
   const on = !Cam.torch;
-  try {
-    if (Cam.track) await Cam.track.applyConstraints({ advanced: [{ torch: on }] });
-    else if (Cam.h5) await Cam.h5.applyVideoConstraints({ advanced: [{ torch: on }] });
-    Cam.torch = on;
-  } catch { toast('Lampe indisponible'); }
+  try { await camApply({ torch: on }); Cam.torch = on; } catch { toast('Lampe indisponible'); }
   updateTorch();
 }
 
