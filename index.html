@@ -233,6 +233,14 @@ select.input{-webkit-appearance:auto;appearance:auto;padding-right:8px}
 .sub-fold{display:flex;align-items:center;gap:8px;width:100%;padding:9px 14px;border:0;border-top:1px solid var(--line);background:var(--surface-2);font-size:13.5px;font-weight:600;color:var(--ink-2);cursor:pointer;text-align:left}
 .cat-body > .sub-fold:first-child{border-top:0}
 .sub-fold .num{margin-left:auto;font-weight:400}
+.cat-set{border-top:1px solid var(--line)}
+.cat-set:first-child{border-top:0}
+.cat-set .menu-row{border-top:0}
+.ray-chips{display:flex;flex-wrap:wrap;gap:6px;padding:0 14px 12px}
+.chip.static{cursor:default;padding-right:2px;gap:2px}
+.ray-name{border:0;background:none;padding:0 2px;font:inherit;color:inherit;cursor:pointer}
+.chip-x{border:0;background:none;width:24px;height:24px;border-radius:50%;cursor:pointer;color:var(--ink-3);font-size:17px;line-height:1;padding:0}
+.add-chip{border-style:dashed;color:var(--accent)}
 .scan-alt{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:4px 0 10px}
 
 /* Scanner */
@@ -251,6 +259,12 @@ select.input{-webkit-appearance:auto;appearance:auto;padding-right:8px}
 .torch{position:absolute;top:10px;right:10px;width:40px;height:40px;border-radius:50%;border:0;background:rgba(0,0,0,.45);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer}
 .torch svg{width:20px;height:20px}
 .torch.on{background:#F5D76E;color:#1E2422}
+.zoom{position:absolute;top:10px;left:10px;height:40px;min-width:48px;padding:0 12px;border-radius:20px;border:0;background:rgba(0,0,0,.45);color:#fff;font-weight:600;font-size:15px;cursor:pointer}
+.zoom.on{background:#fff;color:#1E2422}
+.torch,.zoom{z-index:2}
+.cam-pause{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:rgba(15,19,18,.62);cursor:pointer;padding:16px;text-align:center}
+.cam-pause .btn{height:50px;padding:0 22px;font-size:16px}
+.cam-pause-name{color:#fff;font-weight:600;font-size:15px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .camera-idle{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;text-align:center;padding:16px;color:#C9D0CD;font-size:14px;background:#0F1312}
 .scan-status{min-height:22px;font-size:14.5px;color:var(--ink-2);font-weight:500}
 .scan-status[data-type=ok]{color:var(--ok)}
@@ -366,8 +380,9 @@ body.has-cta .toast{bottom:calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 
         </div>
       </div>
       <div class="group">
-        <div class="group-h">Catégories</div>
+        <div class="group-h">Catégories et rayons</div>
         <div class="card" id="cat-list"></div>
+        <p class="hint" style="margin:6px 2px 0">Touche un rayon pour le renommer, × pour le supprimer.</p>
         <button class="btn btn-ghost btn-sm add-link" id="btn-add-cat">Nouvelle catégorie</button>
       </div>
       <div class="group">
@@ -419,6 +434,8 @@ body.has-cta .toast{bottom:calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 
         <div class="frame" id="frame" hidden></div>
         <div class="flash" id="flash"></div>
         <button class="torch" id="btn-torch" aria-label="Lampe" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3h8l-1.5 5h-5zM9.5 8h5v12a1.5 1.5 0 0 1-1.5 1.5h-2A1.5 1.5 0 0 1 9.5 20z"/><path d="M12 12v2.5"/></svg></button>
+        <button class="zoom" id="btn-zoom" aria-label="Zoom" hidden>1×</button>
+        <div class="cam-pause" id="cam-pause" hidden><span class="cam-pause-name" id="cam-pause-name"></span><button class="btn btn-primary" id="btn-rescan">Scanner un autre article</button></div>
         <div class="camera-idle" id="camera-idle"><span id="cam-msg">Démarrage de la caméra…</span><button class="btn btn-sm" id="btn-cam" hidden>Activer la caméra</button></div>
       </div>
       <div class="scan-status" id="scan-status" aria-live="polite"></div>
@@ -438,7 +455,7 @@ body.has-cta .toast{bottom:calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 
       <div class="field"><label class="label" for="ed-name">Nom</label><input class="input" id="ed-name" placeholder="Riz basmati"></div>
       <div class="grid-2">
         <div class="field"><label class="label" for="ed-cat">Catégorie</label><select class="input" id="ed-cat"></select></div>
-        <div class="field"><label class="label" for="ed-sub">Rayon</label><input class="input" id="ed-sub" list="dl-subcats" placeholder="Pâtes, Lessive…"></div>
+        <div class="field"><label class="label" for="ed-sub">Rayon</label><select class="input" id="ed-sub"></select></div>
       </div>
       <div id="ed-create">
         <div class="field"><span class="label">Quantité</span><div class="stepper"><button type="button" data-edq="-1" aria-label="Moins">−</button><span class="num" id="ed-qty">1</span><button type="button" data-edq="1" aria-label="Plus">+</button></div></div>
@@ -491,7 +508,7 @@ catch (e) { console.warn('Supabase indisponible', e); }
 const K = {
   foyer: 'monstock_foyer_id', stock: 'foyer_stock_pop_v8', refs: 'foyer_refs_pop_v8',
   cats: 'foyer_cats_v8', subcats: 'foyer_subcats_v8', shop: 'foyer_shopping_list_v1',
-  settings: 'monstock_settings_v1', pending: 'monstock_dirty',
+  settings: 'monstock_settings_v1', pending: 'monstock_dirty', rayons: 'monstock_rayons_v2',
   tomb: 'monstock_tomb_v2', cfgDirty: 'monstock_cfg_dirty_v2', basket: 'monstock_basket_v2', local: 'monstock_local_v2'
 };
 const DEFAULT_CATS = [
@@ -511,7 +528,7 @@ const STATES = ['OUVERT','ENTAME','MOITIE'];
 const STATE_LABEL = { OUVERT:'Ouvert', ENTAME:'Entamé', MOITIE:'À moitié' };
 const STATE_FILL = { OUVERT:1, ENTAME:.68, MOITIE:.42 };
 
-const S = { products:[], knownRefs:{}, categories:[], subcategories:[], shoppingList:[], settings:{...DEFAULT_SETTINGS}, tomb:{ p:{}, s:{} } };
+const S = { products:[], knownRefs:{}, categories:[], subcategories:[], rayons:null, shoppingList:[], settings:{...DEFAULT_SETTINGS}, tomb:{ p:{}, s:{} } };
 const L = { me:'', sound:true, fold:{} }; // préférences propres à cet appareil
 const ui = { view:'stock', search:'', filter:'all', productId:null, psMode:null, add:{ qty:1, dlc:'' } };
 
@@ -642,10 +659,29 @@ function catOf(p){
   const g = guess(p.name);
   return g && S.categories.some(c => c.id === g.cat) ? g.cat : 'uncategorized';
 }
-function rayonOf(p){
-  if (p.subcategory) return p.subcategory;
-  const g = guess(p.name);
-  return g && g.cat === catOf(p) ? g.sub : '';
+// Rayons : une liste par catégorie, modifiable dans les Réglages et partagée avec le foyer
+function rayonsOf(cat){ return (S.rayons && S.rayons[cat]) || []; }
+function defaultRayons(){
+  const r = {};
+  RAYON_RULES.forEach(([, cat, sub]) => { if (!r[cat]) r[cat] = []; if (!r[cat].includes(sub)) r[cat].push(sub); });
+  return r;
+}
+// Rayon deviné, seulement s'il existe encore dans la liste (un rayon supprimé ne revient pas)
+function guessRayon(name, cat){ const g = guess(name); return g && g.cat === cat && rayonsOf(cat).includes(g.sub) ? g.sub : ''; }
+function rayonOf(p){ return p.subcategory || guessRayon(p.name, catOf(p)); }
+function rayonOptions(cat, value){
+  const list = [...rayonsOf(cat)];
+  if (value && !list.includes(value)) list.push(value);
+  return `<option value="">Aucun rayon</option>${list.map(r => `<option value="${esc(r)}"${r === value ? ' selected' : ''}>${esc(r)}</option>`).join('')}${cat !== 'uncategorized' ? '<option value="__new">+ Nouveau rayon…</option>' : ''}`;
+}
+async function askNewRayon(cat){
+  const name = await dialog({ title: `Nouveau rayon dans « ${catLabel(catById(cat))} »`, input: { placeholder: 'Céréales' }, okLabel: 'Créer' });
+  if (!name) return '';
+  const ex = rayonsOf(cat).find(r => norm(r) === norm(name));
+  if (ex) return ex;
+  mutateCfg(() => { if (!S.rayons[cat]) S.rayons[cat] = []; S.rayons[cat].push(name); S.rayons[cat].sort((a, b) => a.localeCompare(b, 'fr')); });
+  toast(`Rayon « ${name} » créé`);
+  return name;
 }
 function catLabel(c){ return c.id === 'uncategorized' ? 'À catégoriser' : c.name; }
 function catExists(id){ return S.categories.some(c => c.id === id) ? id : 'uncategorized'; }
@@ -698,6 +734,18 @@ function normalizeAll(){
   S.shoppingList.sort((a, b) => a.c - b.c);
   S.settings = { ...DEFAULT_SETTINGS, ...(S.settings || {}) };
   S.settings.warnDays = clampInt(S.settings.warnDays, 1, 90);
+  if (!S.rayons || typeof S.rayons !== 'object' || Array.isArray(S.rayons)){
+    S.rayons = defaultRayons();
+    // Reprise des anciennes sous-catégories de la V0.1
+    S.subcategories.forEach(sub => {
+      if (Object.values(S.rayons).some(l => l.includes(sub))) return;
+      const p = S.products.find(x => x.subcategory === sub);
+      const cat = p ? catOf(p) : 'food';
+      if (!S.rayons[cat]) S.rayons[cat] = [];
+      S.rayons[cat].push(sub);
+    });
+  }
+  Object.keys(S.rayons).forEach(k => { S.rayons[k] = [...new Set((Array.isArray(S.rayons[k]) ? S.rayons[k] : []).filter(Boolean).map(String))].sort((a, b) => a.localeCompare(b, 'fr')); });
   if (!S.tomb || typeof S.tomb !== 'object') S.tomb = { p:{}, s:{} };
   if (!S.tomb.p) S.tomb.p = {};
   if (!S.tomb.s) S.tomb.s = {};
@@ -732,7 +780,7 @@ function receive({ barcode = '', name, brand = '', category = 'uncategorized', s
   if (!p){
     const g = guess(name);
     if ((!category || category === 'uncategorized') && g && S.categories.some(c => c.id === g.cat)) category = g.cat;
-    if (!subcategory && g && g.cat === category) subcategory = g.sub;
+    if (!subcategory) subcategory = guessRayon(name, category);
     p = normProduct({ id: uid(), barcode, name, brand, category: category || 'uncategorized', subcategory, img, size, reserve_qty: 0, reserve_expiries: [], open_items: [] });
     S.products.push(p);
   } else {
@@ -759,6 +807,7 @@ function readLocal(){
   S.knownRefs = j(K.refs, {});
   S.categories = j(K.cats, null) || clone(DEFAULT_CATS);
   S.subcategories = j(K.subcats, null) || [...DEFAULT_SUBCATS];
+  S.rayons = j(K.rayons, null);
   S.shoppingList = j(K.shop, []);
   S.settings = { ...DEFAULT_SETTINGS, ...j(K.settings, {}) };
   S.tomb = j(K.tomb, { p:{}, s:{} });
@@ -775,6 +824,7 @@ function writeLocal(){
     localStorage.setItem(K.refs, JSON.stringify(S.knownRefs));
     localStorage.setItem(K.cats, JSON.stringify(S.categories));
     localStorage.setItem(K.subcats, JSON.stringify(S.subcategories));
+    localStorage.setItem(K.rayons, JSON.stringify(S.rayons));
     localStorage.setItem(K.shop, JSON.stringify(S.shoppingList));
     localStorage.setItem(K.settings, JSON.stringify(S.settings));
     localStorage.setItem(K.tomb, JSON.stringify(S.tomb));
@@ -871,6 +921,7 @@ async function sync({ replace = false } = {}){
     if (!pushCfg){
       if (Array.isArray(rc.categories)) S.categories = rc.categories;
       if (Array.isArray(rc.subcategories)) S.subcategories = rc.subcategories;
+      if (rc.rayons && typeof rc.rayons === 'object') S.rayons = rc.rayons;
       if (rc.settings) S.settings = { ...DEFAULT_SETTINGS, ...rc.settings };
     }
     normalizeAll();
@@ -884,7 +935,7 @@ async function sync({ replace = false } = {}){
     if (stable(shopDoc) !== stable({ shoppingList: [...rS].sort((a, b) => a.c - b.c), deleted: rTS }))
       ups.push(sb.from('wms_shopping').upsert({ foyer_id: foyer, data: shopDoc, updated_at: now }));
     if (pushCfg)
-      ups.push(sb.from('wms_config').upsert({ foyer_id: foyer, data: { categories: S.categories, subcategories: S.subcategories, settings: S.settings }, updated_at: now }));
+      ups.push(sb.from('wms_config').upsert({ foyer_id: foyer, data: { categories: S.categories, subcategories: S.subcategories, rayons: S.rayons, settings: S.settings }, updated_at: now }));
     if (ups.length){ const res = await Promise.all(ups); const b = res.find(r => r.error); if (b) throw b.error; }
     if (pushCfg && seq === editSeq) setCfgDirty(false);
     if (seq === editSeq){ setPending(false); setSync('ok', 'Synchronisé'); }
@@ -1307,7 +1358,6 @@ function renderBadges(){
 }
 function updateDatalists(){
   $('#dl-products').innerHTML = [...new Set(S.products.map(p => p.name))].sort((a, b) => a.localeCompare(b, 'fr')).map(n => `<option value="${esc(n)}"></option>`).join('');
-  $('#dl-subcats').innerHTML = [...new Set(S.subcategories.concat(S.products.map(p => p.subcategory), RAYON_RULES.map(r => r[2])).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'fr')).map(n => `<option value="${esc(n)}"></option>`).join('');
 }
 
 // ---------- Création / édition ----------
@@ -1322,7 +1372,7 @@ function openEdit(pid){
   $('#ed-name').value = p ? p.name : '';
   $('#ed-brand').value = p ? p.brand : '';
   $('#ed-cat').value = p ? catOf(p) : (S.categories.some(c => c.id === ui.filter) ? ui.filter : 'uncategorized');
-  $('#ed-sub').value = p ? rayonOf(p) : '';
+  $('#ed-sub').innerHTML = rayonOptions($('#ed-cat').value, p ? rayonOf(p) : '');
   $('#ed-size').value = p ? p.size : '';
   $('#ed-open-days').value = p && p.open_days ? p.open_days : '';
   $('#ed-min').value = p ? p.min_qty : 0;
@@ -1433,7 +1483,21 @@ function feedback(type){
 
 // Contrôle de la clé EAN/UPC : élimine les lectures erronées
 function checkEAN(c){ let s = 0; const n = c.length; for (let i = 0; i < n - 1; i++) s += +c[n - 2 - i] * (i % 2 === 0 ? 3 : 1); return (10 - s % 10) % 10 === +c[n - 1]; }
-function onDetect(raw, format){
+// Après chaque article lu, le scanner se met en pause : plus de double scan.
+// On relance avec « Scanner un autre article » (ou en touchant l'image).
+let scanPaused = false;
+function pauseScan(label){
+  scanPaused = true;
+  $('#cam-pause-name').textContent = label || '';
+  $('#cam-pause').hidden = false; $('#frame').hidden = true;
+}
+function resumeScan(){
+  scanPaused = false; lastScan = { code: '', t: 0 };
+  $('#cam-pause').hidden = true;
+  if (Cam.track) $('#frame').hidden = false;
+}
+function onDetect(raw, format, fromKeyboard){
+  if (scanPaused && !fromKeyboard) return;
   let code = String(raw || '').trim();
   if (!code) return;
   const fmt = String(format || '').toLowerCase();
@@ -1443,6 +1507,10 @@ function onDetect(raw, format){
   // Tant que le même code reste devant la caméra, on ne le compte qu'une fois
   if (code === lastScan.code && now - lastScan.t < 1300){ lastScan.t = now; return; }
   lastScan = { code, t: now };
+  if (!fromKeyboard){
+    const known = S.products.find(x => x.barcode === code) || basket.find(b => b.barcode === code) || S.knownRefs[code];
+    pauseScan(known ? known.name : '');
+  }
   handleCode(code);
 }
 
@@ -1465,7 +1533,8 @@ async function startCamera(){
     if (formats) await startNative(my, formats); else await startH5(my);
     if (my !== Cam.sess) return;
     Cam.running = true; camUI(null);
-    updateTorch();
+    updateTorch(); initZoom();
+    if (scanPaused) pauseScan($('#cam-pause-name').textContent);
   } catch (e) {
     console.warn('Caméra', e);
     if (my !== Cam.sess) return;
@@ -1475,7 +1544,7 @@ async function startCamera(){
 }
 // Lecteur natif du téléphone (Chrome Android, Edge…) : beaucoup plus rapide et précis
 async function startNative(my, formats){
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } } });
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } } });
   if (my !== Cam.sess){ stream.getTracks().forEach(t => t.stop()); return; }
   Cam.stream = stream; Cam.track = stream.getVideoTracks()[0];
   try {
@@ -1486,12 +1555,23 @@ async function startNative(my, formats){
   v.srcObject = stream; v.hidden = false; $('#frame').hidden = false; $('#camera').classList.remove('h5');
   await v.play();
   const det = new BarcodeDetector({ formats });
-  let busy = false;
+  const cv = document.createElement('canvas'), cx = cv.getContext('2d');
+  let busy = false, n = 0;
   const tick = async () => {
     if (my !== Cam.sess) return;
-    if (!busy && v.readyState >= 2){
+    if (!busy && !scanPaused && v.readyState >= 2){
       busy = true;
-      try { const r = await det.detect(v); if (r.length && my === Cam.sess) onDetect(r[0].rawValue, r[0].format); } catch {}
+      try {
+        let r = await det.detect(v);
+        // Une fois sur deux : on agrandit le centre de l'image, ce qui aide pour les petits codes
+        if (!r.length && (n++ % 2) && v.videoWidth){
+          const vw = v.videoWidth, vh = v.videoHeight, cw = Math.round(vw * 0.5), ch = Math.round(vh * 0.4);
+          cv.width = cw * 2; cv.height = ch * 2;
+          cx.drawImage(v, (vw - cw) / 2, (vh - ch) / 2, cw, ch, 0, 0, cv.width, cv.height);
+          r = await det.detect(cv);
+        }
+        if (r.length && my === Cam.sess) onDetect(r[0].rawValue, r[0].format);
+      } catch {}
       busy = false;
     }
     Cam.loopT = setTimeout(tick, 70);
@@ -1512,7 +1592,7 @@ async function startH5(my){
   await h.start({ facingMode: 'environment' }, {
     fps: 15, aspectRatio: 1.333,
     qrbox: (w, hh) => ({ width: Math.max(80, Math.floor(w * 0.88)), height: Math.max(60, Math.floor(Math.min(hh * 0.45, 200))) }),
-    videoConstraints: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+    videoConstraints: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } }
   }, (txt, res) => onDetect(txt, res && res.result && res.result.format && res.result.format.formatName), () => {});
   if (my !== Cam.sess){ try { await h.stop(); h.clear(); } catch {} }
 }
@@ -1526,6 +1606,7 @@ async function stopCamera(){
   if (Cam.h5){ const h = Cam.h5; Cam.h5 = null; try { await h.stop(); } catch {} try { h.clear(); } catch {} }
   $('#reader').hidden = true;
   $('#btn-torch').hidden = true;
+  $('#btn-zoom').hidden = true;
 }
 function torchCaps(){
   try {
@@ -1533,6 +1614,38 @@ function torchCaps(){
     if (Cam.h5 && Cam.h5.getRunningTrackCapabilities) return !!Cam.h5.getRunningTrackCapabilities().torch;
   } catch {}
   return false;
+}
+function camCaps(){
+  try {
+    if (Cam.track && Cam.track.getCapabilities) return Cam.track.getCapabilities();
+    if (Cam.h5 && Cam.h5.getRunningTrackCapabilities) return Cam.h5.getRunningTrackCapabilities();
+  } catch {}
+  return {};
+}
+async function camApply(c){
+  if (Cam.track) return Cam.track.applyConstraints({ advanced: [c] });
+  if (Cam.h5) return Cam.h5.applyVideoConstraints({ advanced: [c] });
+}
+let zoomLevels = [1];
+function initZoom(){
+  const z = camCaps().zoom, b = $('#btn-zoom');
+  if (!z || !(z.max >= 1.5)){ b.hidden = true; return; }
+  zoomLevels = [1, 2, 3].map(x => Math.max(z.min || 1, Math.min(z.max, x))).filter((x, i, a) => a.indexOf(x) === i);
+  b.hidden = false;
+  setZoom(zoomLevels.includes(L.zoom) ? L.zoom : zoomLevels[0], true);
+}
+async function setZoom(level, silent){
+  try { await camApply({ zoom: level }); } catch { if (!silent) toast('Zoom indisponible'); return; }
+  L.zoom = level; saveLocalPrefs();
+  const b = $('#btn-zoom'); b.textContent = (Math.round(level * 10) / 10) + '×'; b.classList.toggle('on', level > 1);
+}
+function cycleZoom(){ const i = zoomLevels.indexOf(L.zoom); setZoom(zoomLevels[(i + 1) % zoomLevels.length]); }
+// Toucher l'image relance la mise au point
+async function refocus(){
+  const f = camCaps().focusMode || [];
+  try {
+    if (f.includes('single-shot')){ await camApply({ focusMode: 'single-shot' }); setTimeout(() => { if (f.includes('continuous')) camApply({ focusMode: 'continuous' }).catch(() => {}); }, 1200); }
+  } catch {}
 }
 function updateTorch(){ const b = $('#btn-torch'); b.hidden = !torchCaps(); b.classList.toggle('on', Cam.torch); }
 async function toggleTorch(){
@@ -1547,7 +1660,7 @@ async function toggleTorch(){
 
 function openScan(){
   try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); actx.resume(); } catch {}
-  updateScanMode(); renderScanList(); setScanStatus(MODE_HINT[scanMode]); openSheet('scan'); startCamera();
+  resumeScan(); updateScanMode(); renderScanList(); setScanStatus(MODE_HINT[scanMode]); openSheet('scan'); startCamera();
 }
 function updateScanMode(){
   document.querySelectorAll('#scan-mode button').forEach(b => b.classList.toggle('on', b.dataset.mode === scanMode));
@@ -1556,7 +1669,7 @@ function updateScanMode(){
 // Remet le scanner à zéro (articles abandonnés)
 function resetScanner(){
   basket = []; outLog = []; expandedTid = null; lastScan = { code: '', t: 0 };
-  saveBasket(); setScanStatus(MODE_HINT[scanMode]); renderScanList();
+  saveBasket(); setScanStatus(MODE_HINT[scanMode]); renderScanList(); resumeScan();
 }
 function addManualItem(){
   const item = { tid: uid(), barcode: '', pid: null, name: '', brand: '', category: 'uncategorized', subcategory: '', img: '', size: '', qty: 1, dlc: '', predicted: false, isNew: true, manual: true };
@@ -1672,7 +1785,7 @@ function basketRow(b){
       </div>
       <div class="mini-step"><button data-bk="dec" aria-label="Moins">−</button><span class="num">${b.qty}</span><button data-bk="inc" aria-label="Plus">+</button></div>
     </div>
-    ${open ? `<div class="bk-more">${dlcPicker('bk:' + b.tid, b.dlc)}${b.predicted ? '<p class="hint" style="margin:0">Date estimée d\'après le dernier achat. Corrige-la si besoin.</p>' : ''}${b.isNew ? `<select class="input input-sm" data-bf="category" aria-label="Catégorie">${catOpts}</select>` : ''}</div>` : ''}
+    ${open ? `<div class="bk-more">${dlcPicker('bk:' + b.tid, b.dlc)}${b.predicted ? '<p class="hint" style="margin:0">Date estimée d\'après le dernier achat. Corrige-la si besoin.</p>' : ''}${b.isNew ? `<div class="grid-2"><select class="input input-sm" data-bf="category" aria-label="Catégorie">${catOpts}</select><select class="input input-sm" data-bf="subcategory" aria-label="Rayon">${rayonOptions(b.category, b.subcategory)}</select></div>` : ''}</div>` : ''}
   </div>`;
 }
 function renderScanList(){
@@ -1680,7 +1793,7 @@ function renderScanList(){
   if (scanMode === 'in'){
     box.innerHTML = basket.length
       ? `<div class="list">${basket.map(basketRow).join('')}</div>`
-      : `<p class="muted small center">Le même article scanné deux fois augmente la quantité. La date limite se tape en chiffres (ex. 1211 pour le 12/11).</p>`;
+      : `<p class="muted small center">Après chaque article, touche « Scanner un autre article ». Petit code-barres ? Éloigne un peu le téléphone et utilise le zoom 2×. La date limite se tape en chiffres (ex. 1211 pour le 12/11).</p>`;
     const n = basket.reduce((a, b) => a + b.qty, 0);
     commitBtn.textContent = n ? `Ranger ${n} ${plural(n, 'article', 'articles')}` : 'Ranger';
     commitBtn.disabled = !n;
@@ -1711,7 +1824,8 @@ function commitBasket(){
     });
   }, 'Ajouté');
   basket = []; expandedTid = null; saveBasket();
-  closeSheet('scan');
+  renderScanList(); resumeScan();
+  setScanStatus(`${n} ${plural(n, 'article rangé', 'articles rangés')}. Scanne le suivant, ou ferme avec ×.`, 'ok');
   toast(`${n} ${plural(n, 'article rangé', 'articles rangés')}${fromList ? `, ${fromList} ${plural(fromList, 'retiré', 'retirés')} de la liste` : ''}`, { actions: [{ label: 'Annuler', fn: () => restore(snap) }] });
 }
 
@@ -1727,9 +1841,11 @@ function renderSettings(){
   $('#sound').checked = !!L.sound;
   const cats = S.categories.filter(c => c.id !== 'uncategorized');
   $('#cat-list').innerHTML = cats.length ? cats.map(c => {
-    const n = S.products.filter(p => p.category === c.id).length;
-    return `<div class="menu-row static"><span><i class="swatch" style="background:${esc(c.color)}"></i>${esc(c.name)} <span class="muted small num">${n}</span></span>
-      <span class="btn-row tight"><button class="btn btn-sm btn-ghost" data-catedit="rename" data-id="${esc(c.id)}">Renommer</button><button class="btn btn-sm btn-ghost danger" data-catedit="delete" data-id="${esc(c.id)}">Supprimer</button></span></div>`;
+    const n = S.products.filter(p => catOf(p) === c.id).length;
+    const chip = r => `<span class="chip chip-sm static"><button class="ray-name" data-ray="rename" data-cat="${esc(c.id)}" data-r="${esc(r)}">${esc(r)}</button><button class="chip-x" data-ray="delete" data-cat="${esc(c.id)}" data-r="${esc(r)}" aria-label="Supprimer le rayon ${esc(r)}">×</button></span>`;
+    return `<div class="cat-set"><div class="menu-row static"><span><i class="swatch" style="background:${esc(c.color)}"></i>${esc(c.name)} <span class="muted small num">${n}</span></span>
+      <span class="btn-row tight"><button class="btn btn-sm btn-ghost" data-catedit="rename" data-id="${esc(c.id)}">Renommer</button><button class="btn btn-sm btn-ghost danger" data-catedit="delete" data-id="${esc(c.id)}">Supprimer</button></span></div>
+      <div class="ray-chips">${rayonsOf(c.id).map(chip).join('')}<button class="chip chip-sm add-chip" data-ray="add" data-cat="${esc(c.id)}">+ Rayon</button></div></div>`;
   }).join('') : '<div class="menu-row static muted">Aucune catégorie</div>';
   renderQR();
 }
@@ -1800,12 +1916,27 @@ async function catEdit(action, id){
     const n = S.products.filter(p => p.category === id).length;
     const ok = await dialog({ title: `Supprimer « ${c.name} » ?`, message: n ? `${n} ${plural(n, 'article passera', 'articles passeront')} dans « À catégoriser ».` : '', okLabel: 'Supprimer', danger: true });
     if (!ok) return;
-    mutateCfg(() => { S.categories = S.categories.filter(x => x.id !== id); S.products.forEach(p => { if (p.category === id) p.category = 'uncategorized'; }); });
+    mutateCfg(() => { delete S.rayons[id]; S.categories = S.categories.filter(x => x.id !== id); S.products.forEach(p => { if (p.category === id) p.category = 'uncategorized'; }); });
+  }
+}
+async function rayEdit(action, cat, r){
+  if (action === 'add'){ await askNewRayon(cat); return; }
+  const users = S.products.filter(p => catOf(p) === cat && rayonOf(p) === r);
+  if (action === 'rename'){
+    const name = await dialog({ title: 'Renommer le rayon', input: { value: r }, okLabel: 'Renommer' });
+    if (!name || name === r) return;
+    if (rayonsOf(cat).some(x => x !== r && norm(x) === norm(name))){ toast('Ce rayon existe déjà'); return; }
+    mutateCfg(() => { S.rayons[cat] = rayonsOf(cat).map(x => x === r ? name : x).sort((a, b) => a.localeCompare(b, 'fr')); users.forEach(p => { p.subcategory = name; }); });
+    toast('Rayon renommé');
+  } else {
+    const ok = await dialog({ title: `Supprimer le rayon « ${r} » ?`, message: users.length ? `${users.length} ${plural(users.length, 'article ira', 'articles iront')} dans « Autres ».` : '', okLabel: 'Supprimer', danger: true });
+    if (!ok) return;
+    mutateCfg(() => { S.rayons[cat] = rayonsOf(cat).filter(x => x !== r); users.forEach(p => { p.subcategory = ''; }); });
   }
 }
 function exportData(){
   const data = { app: 'monstock', version: '0.2', foyerId: getFoyerId(), exportedAt: new Date().toISOString(),
-    products: S.products, knownRefs: S.knownRefs, categories: S.categories, subcategories: S.subcategories, shoppingList: S.shoppingList, settings: S.settings };
+    products: S.products, knownRefs: S.knownRefs, categories: S.categories, subcategories: S.subcategories, shoppingList: S.shoppingList, settings: S.settings, rayons: S.rayons };
   const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
   const a = document.createElement('a'); a.href = url; a.download = `monstock_${todayISO()}.json`;
   document.body.appendChild(a); a.click(); a.remove();
@@ -1823,6 +1954,7 @@ async function importFile(file){
     S.knownRefs = data.knownRefs || {};
     if (Array.isArray(data.categories)) S.categories = data.categories;
     if (Array.isArray(data.subcategories)) S.subcategories = data.subcategories;
+    if (data.rayons && typeof data.rayons === 'object') S.rayons = data.rayons;
     S.shoppingList = Array.isArray(data.shoppingList) ? data.shoppingList : [];
     if (data.settings) S.settings = { ...DEFAULT_SETTINGS, ...data.settings };
     normalizeAll();
@@ -1888,7 +2020,7 @@ function bindEvents(){
   document.addEventListener('keydown', e => {
     if (!isOpen('scan') || e.target.matches('input, textarea, select')) return;
     const now = Date.now();
-    if (e.key === 'Enter'){ if (kb.buf.length >= 6){ e.preventDefault(); lastScan = { code: '', t: 0 }; onDetect(kb.buf); } kb.buf = ''; return; }
+    if (e.key === 'Enter'){ if (kb.buf.length >= 6){ e.preventDefault(); lastScan = { code: '', t: 0 }; onDetect(kb.buf, '', true); } kb.buf = ''; return; }
     if (e.key.length === 1 && /[0-9A-Za-z]/.test(e.key)){ if (now - kb.t > 120) kb.buf = ''; kb.buf += e.key; kb.t = now; }
   });
 
@@ -1926,7 +2058,19 @@ function bindEvents(){
     const g = guess($('#ed-name').value);
     if (!g) return;
     if ($('#ed-cat').value === 'uncategorized' && S.categories.some(c => c.id === g.cat)) $('#ed-cat').value = g.cat;
-    if (!$('#ed-sub').value && $('#ed-cat').value === g.cat) $('#ed-sub').value = g.sub;
+    if (!$('#ed-sub').value) $('#ed-sub').innerHTML = rayonOptions($('#ed-cat').value, guessRayon($('#ed-name').value, $('#ed-cat').value));
+  });
+  $('#ed-cat').addEventListener('change', () => {
+    const cat = $('#ed-cat').value, cur = $('#ed-sub').value;
+    $('#ed-sub').innerHTML = rayonOptions(cat, rayonsOf(cat).includes(cur) ? cur : guessRayon($('#ed-name').value, cat));
+  });
+  let edSubPrev = '';
+  $('#ed-sub').addEventListener('focus', () => { edSubPrev = $('#ed-sub').value; });
+  $('#ed-sub').addEventListener('change', async () => {
+    if ($('#ed-sub').value !== '__new'){ edSubPrev = $('#ed-sub').value; return; }
+    const cat = $('#ed-cat').value, name = await askNewRayon(cat);
+    $('#ed-sub').innerHTML = rayonOptions(cat, name || edSubPrev);
+    edSubPrev = $('#ed-sub').value;
   });
   $('#ed-form').addEventListener('click', e => { const b = e.target.closest('[data-edq]'); if (!b) return; ed.qty = Math.max(1, Math.min(99, ed.qty + Number(b.dataset.edq))); $('#ed-qty').textContent = ed.qty; });
 
@@ -1951,22 +2095,35 @@ function bindEvents(){
   $('#btn-store').addEventListener('click', storeChecked);
 
   // Scanner
-  $('#scan-mode').addEventListener('click', e => { const b = e.target.closest('[data-mode]'); if (!b) return; scanMode = b.dataset.mode; updateScanMode(); renderScanList(); setScanStatus(MODE_HINT[scanMode]); });
+  $('#scan-mode').addEventListener('click', e => { const b = e.target.closest('[data-mode]'); if (!b) return; scanMode = b.dataset.mode; resumeScan(); updateScanMode(); renderScanList(); setScanStatus(MODE_HINT[scanMode]); });
   $('#btn-cam').addEventListener('click', startCamera);
   $('#btn-scan-manual').addEventListener('click', addManualItem);
   $('#btn-scan-code').addEventListener('click', () => { const f = $('#manual-code'); f.hidden = !f.hidden; if (!f.hidden) $('#manual-code-input').focus(); });
   $('#btn-torch').addEventListener('click', toggleTorch);
+  $('#btn-zoom').addEventListener('click', cycleZoom);
+  $('#cam-pause').addEventListener('click', resumeScan);
+  $('#cam-video').addEventListener('click', refocus);
   $('#manual-code').addEventListener('submit', e => { e.preventDefault(); const i = $('#manual-code-input'); const v = i.value.trim(); i.value = ''; if (v) handleCode(/^\d{12}$/.test(v) ? '0' + v : v); });
   const onBasketInput = e => {
     const el = e.target.closest('[data-bf]'); if (!el) return;
     const b = basket.find(x => x.tid === el.closest('[data-tid]').dataset.tid); if (!b) return;
+    if (el.dataset.bf === 'subcategory' && el.value === '__new'){
+      if (e.type !== 'change') return;
+      askNewRayon(b.category).then(name => { if (name) b.subcategory = name; saveBasket(); renderScanList(); });
+      return;
+    }
     b[el.dataset.bf] = el.value;
     if (el.dataset.bf === 'name') el.classList.toggle('needs', !el.value.trim());
-    if (e.type === 'change' && el.dataset.bf === 'name' && b.category === 'uncategorized'){
+    if (e.type !== 'change'){ saveBasket(); return; }
+    let rerender = false;
+    if (el.dataset.bf === 'name'){
       const g = guess(b.name);
-      if (g && S.categories.some(c => c.id === g.cat)){ b.category = g.cat; if (!b.subcategory) b.subcategory = g.sub; const sel = el.closest('[data-tid]').querySelector('[data-bf=category]'); if (sel) sel.value = g.cat; }
+      if (b.category === 'uncategorized' && g && S.categories.some(c => c.id === g.cat)){ b.category = g.cat; rerender = true; }
+      if (!b.subcategory){ const r = guessRayon(b.name, b.category); if (r){ b.subcategory = r; rerender = true; } }
     }
+    if (el.dataset.bf === 'category'){ b.subcategory = rayonsOf(b.category).includes(b.subcategory) ? b.subcategory : guessRayon(b.name, b.category); rerender = true; }
     saveBasket();
+    if (rerender) renderScanList();
   };
   $('#scan-list').addEventListener('input', onBasketInput);
   $('#scan-list').addEventListener('change', onBasketInput);
@@ -2012,7 +2169,10 @@ function bindEvents(){
   $('#sound').addEventListener('change', e => { L.sound = e.target.checked; saveLocalPrefs(); });
   $('#warn-days').addEventListener('change', e => { S.settings.warnDays = clampInt(e.target.value, 1, 90); e.target.value = S.settings.warnDays; setCfgDirty(true); commit(); });
   $('#btn-add-cat').addEventListener('click', addCategory);
-  $('#cat-list').addEventListener('click', e => { const b = e.target.closest('[data-catedit]'); if (b) catEdit(b.dataset.catedit, b.dataset.id); });
+  $('#cat-list').addEventListener('click', e => {
+    const b = e.target.closest('[data-catedit]'); if (b) return catEdit(b.dataset.catedit, b.dataset.id);
+    const r = e.target.closest('[data-ray]'); if (r) rayEdit(r.dataset.ray, r.dataset.cat, r.dataset.r);
+  });
   $('#btn-export').addEventListener('click', exportData);
   $('#btn-import').addEventListener('click', () => $('#import-file').click());
   $('#import-file').addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; if (f) importFile(f); });
