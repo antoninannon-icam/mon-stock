@@ -251,9 +251,10 @@ select.input{-webkit-appearance:auto;appearance:auto;padding-right:8px}
 .scan-head{align-items:center}
 .camera{position:relative;background:#0F1312;border-radius:var(--r);overflow:hidden;aspect-ratio:16/9;max-height:30vh;min-height:150px;width:100%;margin-bottom:8px}
 .camera video{display:block;width:100%;height:100%;object-fit:cover}
-.camera.h5{aspect-ratio:auto;max-height:none;min-height:0}
-#reader{width:100%}
-#reader video{display:block;width:100%!important;height:auto!important}
+#reader{position:absolute;inset:0;overflow:hidden;border:0!important}
+#reader video{position:absolute;inset:0;display:block;width:100%!important;height:100%!important;object-fit:cover}
+#reader > div{position:absolute!important;inset:0;width:100%!important;height:100%!important;min-height:0!important;padding:0!important}
+#reader #qr-shaded-region,#reader img{display:none!important}
 .frame{position:absolute;left:12%;right:12%;top:25%;bottom:25%;z-index:1;border:2px solid rgba(255,255,255,.9);border-radius:12px;box-shadow:0 0 0 999px rgba(0,0,0,.22);pointer-events:none}
 .frame::after{content:'';position:absolute;left:5%;right:5%;top:50%;height:2px;background:rgba(255,90,80,.85)}
 .flash{position:absolute;inset:0;z-index:1;pointer-events:none;opacity:0;transition:opacity .35s}
@@ -1500,7 +1501,7 @@ function pauseScan(label){
 function resumeScan(){
   scanPaused = false; lastScan = { code: '', t: 0 };
   $('#cam-pause').hidden = true;
-  if (Cam.track) $('#frame').hidden = false;
+  if (Cam.track || Cam.h5) $('#frame').hidden = false;
 }
 function onDetect(raw, format, fromKeyboard){
   if (scanPaused && !fromKeyboard) return;
@@ -1592,7 +1593,7 @@ async function startH5(my){
     catch { throw 'Lecteur indisponible (pas de connexion ?). Saisis le code à la main.'; }
   }
   if (my !== Cam.sess) return;
-  $('#reader').hidden = false; $('#camera').classList.add('h5'); $('#frame').hidden = true;
+  $('#reader').hidden = false; $('#frame').hidden = false;
   const F = window.Html5QrcodeSupportedFormats;
   const h = new Html5Qrcode('reader', { verbose: false, formatsToSupport: F ? [F.EAN_13, F.EAN_8, F.UPC_A, F.UPC_E, F.CODE_128, F.CODE_39, F.ITF, F.QR_CODE] : undefined, experimentalFeatures: { useBarCodeDetectorIfSupported: true } });
   Cam.h5 = h;
