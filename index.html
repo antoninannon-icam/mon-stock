@@ -1638,7 +1638,9 @@ function initZoom(){
   if (!z || !(z.max >= 1.5)){ b.hidden = true; return; }
   zoomLevels = [1, 2, 3].map(x => Math.max(z.min || 1, Math.min(z.max, x))).filter((x, i, a) => a.indexOf(x) === i);
   b.hidden = false;
-  setZoom(zoomLevels.includes(L.zoom) ? L.zoom : zoomLevels[0], true);
+  // Par défaut 2× (le niveau le plus proche si le téléphone ne monte pas jusqu'à 2) ; ensuite, le choix de l'utilisateur est retenu
+  const def = zoomLevels.reduce((a, b) => Math.abs(b - 2) < Math.abs(a - 2) ? b : a);
+  setZoom(zoomLevels.includes(L.zoom) ? L.zoom : def, true);
 }
 async function setZoom(level, silent){
   try { await camApply({ zoom: level }); } catch { if (!silent) toast('Zoom indisponible'); return; }
