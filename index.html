@@ -203,7 +203,7 @@ select.input{-webkit-appearance:auto;appearance:auto;padding-right:8px}
 .open-top > span{display:inline-flex;align-items:center;gap:6px}
 .open-card .dlc{margin-top:10px}
 .track{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:10px}
-.track button{height:42px;border:1px solid var(--line-strong);background:var(--surface);border-radius:8px;font-size:13.5px;color:var(--ink-2);cursor:pointer;padding:0 2px}
+.track button{height:44px;line-height:1.15;border:1px solid var(--line-strong);background:var(--surface);border-radius:8px;font-size:13.5px;color:var(--ink-2);cursor:pointer;padding:0 2px}
 .track button.past{background:var(--accent-soft);border-color:var(--accent-soft);color:var(--accent)}
 .track button.cur{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
 .track button.fin{border-style:dashed}
@@ -241,25 +241,29 @@ select.input{-webkit-appearance:auto;appearance:auto;padding-right:8px}
 .ray-name{border:0;background:none;padding:0 2px;font:inherit;color:inherit;cursor:pointer}
 .chip-x{border:0;background:none;width:24px;height:24px;border-radius:50%;cursor:pointer;color:var(--ink-3);font-size:17px;line-height:1;padding:0}
 .add-chip{border-style:dashed;color:var(--accent)}
-.scan-alt{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:4px 0 10px}
+.scan-alt{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:2px 0 6px}
+#sheet-scan .sheet-body{display:flex;flex-direction:column;overflow:hidden;padding-top:10px;padding-bottom:0}
+.scan-top{flex:none}
+#scan-list{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;margin:0 -18px;padding:0 18px 12px;border-top:1px solid var(--line);padding-top:10px}
+#sheet-scan .sheet-head{padding:10px 14px}
 
 /* Scanner */
 .scan-head{align-items:center}
-.camera{position:relative;background:#0F1312;border-radius:var(--r);overflow:hidden;aspect-ratio:4/3;max-height:40vh;min-height:190px;width:100%;margin-bottom:10px}
+.camera{position:relative;background:#0F1312;border-radius:var(--r);overflow:hidden;aspect-ratio:16/9;max-height:30vh;min-height:150px;width:100%;margin-bottom:8px}
 .camera video{display:block;width:100%;height:100%;object-fit:cover}
-.camera.h5{aspect-ratio:auto;max-height:none}
+.camera.h5{aspect-ratio:auto;max-height:34vh}
 #reader{width:100%}
 #reader video{display:block;width:100%!important}
-.frame{position:absolute;left:9%;right:9%;top:28%;bottom:28%;border:2px solid rgba(255,255,255,.9);border-radius:12px;box-shadow:0 0 0 999px rgba(0,0,0,.22);pointer-events:none}
+.frame{position:absolute;left:10%;right:10%;top:22%;bottom:22%;border:2px solid rgba(255,255,255,.9);border-radius:12px;box-shadow:0 0 0 999px rgba(0,0,0,.22);pointer-events:none}
 .frame::after{content:'';position:absolute;left:5%;right:5%;top:50%;height:2px;background:rgba(255,90,80,.85)}
 .flash{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .35s}
 .flash.ok{background:rgba(46,125,79,.5);opacity:1;transition:none}
 .flash.warn{background:rgba(161,92,7,.5);opacity:1;transition:none}
 .flash.err{background:rgba(179,38,30,.5);opacity:1;transition:none}
-.torch{position:absolute;top:10px;right:10px;width:40px;height:40px;border-radius:50%;border:0;background:rgba(0,0,0,.45);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.torch{position:absolute;bottom:10px;right:10px;width:40px;height:40px;border-radius:50%;border:0;background:rgba(0,0,0,.45);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer}
 .torch svg{width:20px;height:20px}
 .torch.on{background:#F5D76E;color:#1E2422}
-.zoom{position:absolute;top:10px;left:10px;height:40px;min-width:48px;padding:0 12px;border-radius:20px;border:0;background:rgba(0,0,0,.45);color:#fff;font-weight:600;font-size:15px;cursor:pointer}
+.zoom{position:absolute;bottom:10px;right:58px;height:40px;min-width:48px;padding:0 12px;border-radius:20px;border:0;background:rgba(0,0,0,.45);color:#fff;font-weight:600;font-size:15px;cursor:pointer}
 .zoom.on{background:#fff;color:#1E2422}
 .torch,.zoom{z-index:2}
 .cam-pause{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:rgba(15,19,18,.62);cursor:pointer;padding:16px;text-align:center}
@@ -428,6 +432,7 @@ body.has-cta .toast{bottom:calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 
       <button class="icon-btn" data-close aria-label="Fermer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
     </div>
     <div class="sheet-body">
+      <div class="scan-top">
       <div class="camera" id="camera">
         <video id="cam-video" playsinline muted hidden></video>
         <div id="reader" hidden></div>
@@ -441,6 +446,7 @@ body.has-cta .toast{bottom:calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 
       <div class="scan-status" id="scan-status" aria-live="polite"></div>
       <div class="scan-alt"><button class="link" id="btn-scan-manual">+ Ajouter sans scanner</button><button class="link" id="btn-scan-code">Taper un code-barres</button></div>
         <form class="inline-form" id="manual-code" autocomplete="off" hidden style="margin:-4px 0 12px"><input class="input" id="manual-code-input" inputmode="numeric" placeholder="3017620422003" enterkeyhint="go"><button class="btn" type="submit">Valider</button></form>
+      </div>
       <div id="scan-list"></div>
     </div>
     <div class="sheet-foot"><button class="btn btn-primary grow" id="btn-basket-commit">Ranger</button></div>
@@ -523,10 +529,10 @@ const DEFAULT_SUBCATS = ['Pâtes','Riz','Conserves','Sauces','Épices','Boissons
 const DEFAULT_SETTINGS = { warnDays: 7 };
 const PALETTE = ['#9DBF9E','#8FB8B8','#93A9C9','#B5A58C','#C9B98A','#C49A9A','#A99BC0','#A3B07E','#C4A07A','#8CA6A0'];
 
-// Cycle de vie d'un produit ouvert : Ouvert → Entamé → À moitié → Fini (retiré du stock)
-const STATES = ['OUVERT','ENTAME','MOITIE'];
-const STATE_LABEL = { OUVERT:'Ouvert', ENTAME:'Entamé', MOITIE:'À moitié' };
-const STATE_FILL = { OUVERT:1, ENTAME:.68, MOITIE:.42 };
+// Cycle de vie d'un produit ouvert : Entamé → Moitié → Presque vide → Vide (retiré du stock)
+const STATES = ['ENTAME','MOITIE','PRESQUE'];
+const STATE_LABEL = { ENTAME:'Entamé', MOITIE:'Moitié', PRESQUE:'Presque vide' };
+const STATE_FILL = { ENTAME:.8, MOITIE:.5, PRESQUE:.2 };
 
 const S = { products:[], knownRefs:{}, categories:[], subcategories:[], rayons:null, shoppingList:[], settings:{...DEFAULT_SETTINGS}, tomb:{ p:{}, s:{} } };
 const L = { me:'', sound:true, fold:{} }; // préférences propres à cet appareil
@@ -706,7 +712,7 @@ function normProduct(p){
   p.open_items = Array.isArray(p.open_items) ? p.open_items.filter(i => i && typeof i === 'object') : [];
   p.open_items.forEach(i => {
     i.id = i.id || uid(); i.expiry = i.expiry || ''; i.opened_at = i.opened_at || todayISO();
-    if (!STATE_LABEL[i.state]) i.state = i.state === 'FIN' ? 'MOITIE' : 'ENTAME'; // états de la V0.1
+    if (!STATE_LABEL[i.state]) i.state = i.state === 'FIN' ? 'PRESQUE' : 'ENTAME'; // anciens états
   });
   p.min_qty = Math.max(0, parseInt(p.min_qty, 10) || 0);
   p.open_days = Math.max(0, parseInt(p.open_days, 10) || 0);
@@ -1194,7 +1200,7 @@ function openCard(p, it){
     <div class="open-top"><span>${gauge(it.state)}Ouvert ${esc(when)}${it.by ? ' par ' + esc(it.by) : ''}</span>
       <button class="date-pill ${st === 'ok' ? '' : st}" data-act="edit-date" data-key="${esc(key)}">${e ? esc(st === 'ok' ? 'avant le ' + fmtShort(e) : dlcLabel(e)) : 'Date ?'}</button></div>
     ${ui.psMode === key ? dlcPicker(key, e) : ''}
-    <div class="track" role="group" aria-label="Où en est-il ?">${STATES.map((s, i) => `<button class="${i < idx ? 'past' : i === idx ? 'cur' : ''}" data-act="state" data-item="${esc(it.id)}" data-state="${s}" aria-pressed="${i === idx}">${STATE_LABEL[s]}</button>`).join('')}<button class="fin" data-act="state" data-item="${esc(it.id)}" data-state="FIN">Fini</button></div>
+    <div class="track" role="group" aria-label="Où en est-il ?">${STATES.map((s, i) => `<button class="${i < idx ? 'past' : i === idx ? 'cur' : ''}" data-act="state" data-item="${esc(it.id)}" data-state="${s}" aria-pressed="${i === idx}">${STATE_LABEL[s]}</button>`).join('')}<button class="fin" data-act="state" data-item="${esc(it.id)}" data-state="FIN">Vide</button></div>
   </div>`;
 }
 function lotRow(l){
@@ -1249,7 +1255,7 @@ function openUnit(pid, date){
   if (!p || p.reserve_qty <= 0){ toast('Aucun produit fermé'); return; }
   const snap = mutate(() => {
     const d = takeUnit(p, date === undefined ? 0 : p.reserve_expiries.indexOf(date));
-    p.open_items.push({ id: uid(), opened_at: todayISO(), expiry: d, state: 'OUVERT', by: L.me || '' });
+    p.open_items.push({ id: uid(), opened_at: todayISO(), expiry: d, state: 'ENTAME', by: L.me || '' });
   }, 'Ouvert');
   const e = effExp(p, p.open_items[p.open_items.length - 1]);
   toast(`${p.name} ouvert${e ? `, à finir ${dlcHuman(e)}` : ''}`, { actions: [{ label: 'Annuler', fn: () => restore(snap) }] });
@@ -1264,8 +1270,8 @@ function setItemState(pid, itemId, state){
   const p = getP(pid); if (!p) return;
   const it = p.open_items.find(i => i.id === itemId); if (!it) return;
   if (state === 'FIN'){
-    const snap = mutate(() => { p.open_items = p.open_items.filter(i => i !== it); }, 'Fini');
-    afterOut(pid, `${p.name} : fini`, snap);
+    const snap = mutate(() => { p.open_items = p.open_items.filter(i => i !== it); }, 'Vide');
+    afterOut(pid, `${p.name} : vide, retiré du stock`, snap);
     return;
   }
   if (it.state === state) return;
@@ -1715,7 +1721,7 @@ async function handleCode(code){
   const ex = basket.find(b => b.barcode === code);
   if (ex){
     ex.qty++; basket = [ex].concat(basket.filter(b => b !== ex)); expandedTid = ex.tid;
-    saveBasket(); renderScanList(); feedback('ok'); setScanStatus(`${ex.name || 'Article'} : ${ex.qty}`, 'ok'); return;
+    saveBasket(); renderScanList(); $('#scan-list').scrollTop = 0; feedback('ok'); setScanStatus(`${ex.name || 'Article'} : ${ex.qty}`, 'ok'); return;
   }
   const prod = S.products.find(p => p.barcode === code);
   const ref = !prod && S.knownRefs[code];
@@ -1723,7 +1729,7 @@ async function handleCode(code){
   const item = { tid: uid(), barcode: code, pid: prod ? prod.id : null, name: src ? src.name : '', brand: (src && src.brand) || '',
     category: catExists((src && src.category) || 'uncategorized'), subcategory: (src && src.subcategory) || '', img: (src && src.img) || '', size: (src && src.size) || '',
     qty: 1, dlc: predictedDLC(prod), predicted: !!predictedDLC(prod), isNew: !prod, loading: !src };
-  basket.unshift(item); expandedTid = item.tid; saveBasket(); renderScanList();
+  basket.unshift(item); expandedTid = item.tid; saveBasket(); renderScanList(); $('#scan-list').scrollTop = 0;
   if (src){
     feedback('ok'); setScanStatus(`${item.name} ajouté`, 'ok');
     if (prod && !prod.img && /^\d{8,14}$/.test(code)) lookup(code).then(r => { const p = getP(prod.id); if (r && p && !p.img) mutate(() => { p.img = r.img; if (!p.size) p.size = r.size; }); });
@@ -1752,7 +1758,7 @@ function scanOut(code){
   if (scanMode === 'open'){
     if (p.reserve_qty <= 0){ feedback('err'); setScanStatus(`${p.name} : aucun produit fermé`, 'err'); return; }
     let item;
-    mutate(() => { const d = takeUnit(p, 0); item = { id: uid(), opened_at: todayISO(), expiry: d, state: 'OUVERT', by: L.me || '' }; p.open_items.push(item); }, 'Ouvert');
+    mutate(() => { const d = takeUnit(p, 0); item = { id: uid(), opened_at: todayISO(), expiry: d, state: 'ENTAME', by: L.me || '' }; p.open_items.push(item); }, 'Ouvert');
     const e = effExp(p, item);
     outLog.unshift({ id: uid(), pid, name: p.name, text: `ouvert${e ? ', à finir ' + dlcHuman(e) : ''}`,
       undo: () => mutate(() => { const q = getP(pid); if (!q) return; const k = q.open_items.findIndex(i => i.id === item.id); if (k < 0) return; q.open_items.splice(k, 1); addUnits(q, 1, item.expiry); }) });
