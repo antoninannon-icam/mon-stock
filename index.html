@@ -241,6 +241,21 @@ select.input{-webkit-appearance:auto;appearance:auto;padding-right:8px}
 .chip-x{border:0;background:none;width:24px;height:24px;border-radius:50%;cursor:pointer;color:var(--ink-3);font-size:17px;line-height:1;padding:0}
 .add-chip{border-style:dashed;color:var(--accent)}
 
+/* Revue avant rangement */
+.rv{border-top:1px solid var(--line)}
+.rv:first-child{border-top:0}
+.rv.open{background:#FBFCFB}
+.rv-top{display:flex;align-items:center;gap:12px;padding:10px 12px 10px 10px;cursor:pointer;min-height:62px}
+.rv-top .row-main{min-width:0}
+.rv-title{display:flex;align-items:center;gap:6px;font-weight:500}
+.rv-title span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.warn-ic{flex:none;width:18px;height:18px;border-radius:50%;background:var(--warn);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;line-height:1}
+.rv-place.missing{color:var(--warn);font-weight:500}
+.rv-more{display:grid;gap:12px;padding:2px 12px 14px 62px}
+.rv-more .label{margin-bottom:4px}
+.rv-sub{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+@media (max-width:420px){.rv-more{padding-left:12px}}
+
 /* Réglages */
 .group{margin-top:22px}
 .group-h{font-size:14px;font-weight:600;color:var(--ink-2);margin:0 2px 8px}
@@ -411,6 +426,15 @@ body.has-cta .toast{bottom:calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 
   </div>
 </div>
 
+<!-- Revue avant rangement -->
+<div class="sheet-backdrop sheet-tall" id="sheet-review" data-sheet="review">
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="rv-title">
+    <div class="sheet-head"><div class="grow"><h2 class="sheet-title" id="rv-title">Avant de ranger</h2><div class="sheet-sub" id="rv-sub"></div></div><button class="icon-btn" data-close aria-label="Fermer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+    <div class="sheet-body" id="rv-body"></div>
+    <div class="sheet-foot"><button class="btn btn-primary grow" id="btn-rv-commit">Ranger</button></div>
+  </div>
+</div>
+
 <!-- Dialogue -->
 <div class="sheet-backdrop sheet-center" id="sheet-dialog" data-sheet="dialog">
   <form class="sheet" role="alertdialog" aria-modal="true" aria-labelledby="dlg-title" id="dlg-form" autocomplete="off">
@@ -440,7 +464,7 @@ const K = {
   foyer: 'monstock_foyer_id', stock: 'foyer_stock_pop_v8', refs: 'foyer_refs_pop_v8',
   cats: 'foyer_cats_v8', subcats: 'foyer_subcats_v8', shop: 'foyer_shopping_list_v1',
   settings: 'monstock_settings_v1', pending: 'monstock_dirty', rayons: 'monstock_rayons_v2',
-  tomb: 'monstock_tomb_v2', cfgDirty: 'monstock_cfg_dirty_v2', basket: 'monstock_basket_v2', local: 'monstock_local_v2'
+  tomb: 'monstock_tomb_v2', cfgDirty: 'monstock_cfg_dirty_v2', basket: 'monstock_basket_v2', local: 'monstock_local_v2', review: 'monstock_review_v3'
 };
 const DEFAULT_CATS = [
   { id:'uncategorized', name:'À catégoriser', icon:'', color:'#D6DAD7', text:'#4F5955' },
@@ -996,6 +1020,10 @@ function setView(v){
   window.scrollTo(0, 0);
 }
 function renderAll(){
+  if (isOpen('review')){
+    const ids = S.shoppingList.filter(i => i.checked).map(i => i.id).join(), cur = rv.items.map(r => r.sid).join();
+    if (ids !== cur){ buildReview(); renderReview(); }
+  }
   renderStock(); renderShopping();
   if (ui.view === 'settings') renderSettings();
   renderBadges();
@@ -1238,21 +1266,84 @@ function renderShopping(){
   $('#shop-cta').hidden = !showCta;
   document.body.classList.toggle('has-cta', showCta);
   const n = done.reduce((a, i) => a + i.qty, 0);
-  $('#btn-store').textContent = `Ranger ${n} ${plural(n, 'article', 'articles')} dans le stock`;
+  $('#btn-store').textContent = `Ranger ${n} ${plural(n, 'article', 'articles')} dans le stock…`;
 }
-function storeChecked(){
-  const done = S.shoppingList.filter(i => i.checked);
-  if (!done.length) return;
+// ---------- Revue avant rangement ----------
+// Les articles cochés passent par une liste à vérifier : date limite, catégorie, rayon.
+// Le brouillon est gardé sur l'appareil : rien n'est perdu si on ferme la fenêtre.
+const rv = { items: [], open: null };
+function saveReview(){ try { localStorage.setItem(K.review, JSON.stringify(rv.items)); } catch {} }
+function loadReview(){ try { const v = JSON.parse(localStorage.getItem(K.review) || '[]'); rv.items = Array.isArray(v) ? v : []; } catch { rv.items = []; } }
+function guessCat(name){ const g = guess(name); return g && S.categories.some(c => c.id === g.cat) ? g.cat : 'uncategorized'; }
+function buildReview(){
+  const old = new Map(rv.items.map(r => [r.sid, r]));
+  rv.items = S.shoppingList.filter(i => i.checked).map(i => {
+    const o = old.get(i.id);
+    if (o) return o;
+    const p = i.prodId ? getP(i.prodId) : findByName(i.label);
+    const name = p ? p.name : (i.label || 'Article');
+    const category = p ? catOf(p) : guessCat(name);
+    const subcategory = p ? rayonOf(p) : guessRayon(name, category);
+    return { sid: i.id, pid: p ? p.id : null, name, qty: i.qty, dlc: '', category, subcategory };
+  });
+  saveReview();
+}
+const rvMissing = r => r.category === 'uncategorized' || !r.subcategory;
+function reviewRow(r){
+  const open = rv.open === r.sid, c = catById(catExists(r.category)), miss = rvMissing(r);
+  const st = r.dlc ? dlcStatus(r.dlc) : '';
+  const place = r.category === 'uncategorized' ? 'Catégorie à choisir' : (r.subcategory ? `${catLabel(c)} · ${r.subcategory}` : `${catLabel(c)} · rayon à choisir`);
+  const catOpts = S.categories.map(x => `<option value="${esc(x.id)}"${x.id === r.category ? ' selected' : ''}>${esc(catLabel(x))}</option>`).join('');
+  return `<div class="rv${open ? ' open' : ''}" data-rid="${esc(r.sid)}">
+    <div class="rv-top" data-rv="toggle">
+      ${thumb({ name: r.name, category: r.category })}
+      <div class="row-main">
+        <div class="rv-title"><span>${esc(r.name)}</span>${miss ? '<i class="warn-ic" title="Catégorie ou rayon manquant" aria-label="Catégorie ou rayon manquant">!</i>' : ''}</div>
+        <div class="row-meta"><span class="rv-place${miss ? ' missing' : ''}">${esc(place)}</span><span class="tag ${st === 'ok' ? '' : st}">${r.dlc ? 'DLC ' + esc(fmtDate(r.dlc)) : 'DLC ?'}</span></div>
+      </div>
+      <div class="mini-step"><button data-rv="dec" aria-label="Moins">−</button><span class="num">${r.qty}</span><button data-rv="inc" aria-label="Plus">+</button></div>
+    </div>
+    ${open ? `<div class="rv-more">
+      <div><span class="label">Date limite${r.qty > 1 ? ` (pour les ${r.qty})` : ''}</span>${dlcPicker('rv:' + r.sid, r.dlc)}</div>
+      <div class="grid-2">
+        <div><span class="label">Catégorie</span><select class="input input-sm" data-rvf="category">${catOpts}</select></div>
+        <div><span class="label">Rayon</span><select class="input input-sm" data-rvf="subcategory">${rayonOptions(r.category, r.subcategory)}</select></div>
+      </div>
+      <div class="btn-row end" style="margin-top:0"><button class="btn btn-sm btn-ghost danger" data-rv="remove">Ne pas ranger</button><button class="btn btn-sm btn-soft" data-rv="next">${nextReview(r) ? 'Suivant' : 'OK'}</button></div>
+    </div>` : ''}
+  </div>`;
+}
+function nextReview(r){ const k = rv.items.indexOf(r); return rv.items.slice(k + 1).find(x => !x.dlc || rvMissing(x)) || null; }
+function renderReview(){
+  const n = rv.items.reduce((a, r) => a + r.qty, 0);
+  const noDlc = rv.items.filter(r => !r.dlc).length, miss = rv.items.filter(rvMissing).length;
+  $('#rv-sub').textContent = rv.items.length ? [`${n} ${plural(n, 'article', 'articles')}`, noDlc ? `${noDlc} sans DLC` : 'DLC ok', miss ? `${miss} sans rayon` : ''].filter(Boolean).join(' · ') : '';
+  $('#rv-body').innerHTML = rv.items.length
+    ? `<p class="hint" style="margin:0 0 10px">Touche un produit pour mettre sa date limite, sa catégorie et son rayon.</p><div class="list">${rv.items.map(reviewRow).join('')}</div>`
+    : emptyHTML('Rien à ranger', 'Coche des articles dans la liste de courses.');
+  const b = $('#btn-rv-commit'); b.disabled = !n;
+  b.textContent = n ? `Ranger ${n} ${plural(n, 'article', 'articles')}` : 'Ranger';
+}
+function openReview(){
+  buildReview();
+  rv.open = (rv.items.find(r => !r.dlc) || {}).sid || null;
+  renderReview(); openSheet('review'); $('#rv-body').scrollTop = 0;
+}
+function getRv(el){ const row = el.closest('[data-rid]'); return row && rv.items.find(r => r.sid === row.dataset.rid); }
+function commitReview(){
+  const items = rv.items.slice(); if (!items.length) return;
   let n = 0;
   const snap = mutate(() => {
-    done.forEach(i => {
-      const p = i.prodId ? getP(i.prodId) : null;
-      if (p) addUnits(p, i.qty, '');
-      else receive({ name: i.label || 'Article', qty: i.qty });
-      n += i.qty;
+    items.forEach(r => {
+      const p = (r.pid && getP(r.pid)) || findByName(r.name);
+      if (p){ p.category = r.category; p.subcategory = r.subcategory; addUnits(p, r.qty, r.dlc); }
+      else receive({ name: r.name, category: r.category, subcategory: r.subcategory, qty: r.qty, dlc: r.dlc });
+      n += r.qty;
     });
-    S.shoppingList = S.shoppingList.filter(i => !i.checked);
+    const ids = new Set(items.map(r => r.sid));
+    S.shoppingList = S.shoppingList.filter(i => !ids.has(i.id));
   }, 'Rangé');
+  rv.items = []; rv.open = null; saveReview(); closeSheet('review');
   toast(`${n} ${plural(n, 'article rangé', 'articles rangés')}`, { actions: [{ label: 'Annuler', fn: () => restore(snap) }] });
 }
 
@@ -1386,7 +1477,10 @@ async function deleteProduct(pid){
 // ---------- Saisie des dates limites (commune à tous les écrans) ----------
 function applyDlc(key, iso){
   const [kind, ...rest] = key.split(':'), arg = rest.join(':');
-  if (kind === 'add'){
+  if (kind === 'rv'){
+    const r = rv.items.find(x => x.sid === arg); if (!r) return;
+    r.dlc = iso; saveReview(); renderReview();
+  } else if (kind === 'add'){
     ui.add.dlc = iso; renderProductSheet();
   } else if (kind === 'ed'){
     ed.dlc = iso; renderEdDlc();
@@ -1661,7 +1755,37 @@ function bindEvents(){
       else { const name = listName(it); const snap = mutate(() => { S.shoppingList = S.shoppingList.filter(x => x !== it); }); toast(`${name} retiré de la liste`, { actions: [{ label: 'Annuler', fn: () => restore(snap) }] }); }
     }
   });
-  $('#btn-store').addEventListener('click', storeChecked);
+  $('#btn-store').addEventListener('click', openReview);
+  $('#btn-rv-commit').addEventListener('click', commitReview);
+  $('#rv-body').addEventListener('click', e => {
+    const b = e.target.closest('[data-rv]'); if (!b) return;
+    const r = getRv(b); if (!r) return;
+    const act = b.dataset.rv;
+    if (act === 'toggle'){ if (e.target.closest('.mini-step')) return; rv.open = rv.open === r.sid ? null : r.sid; }
+    if (act === 'inc') r.qty = Math.min(99, r.qty + 1);
+    if (act === 'dec') r.qty = Math.max(1, r.qty - 1);
+    if (act === 'next'){ const nx = nextReview(r); rv.open = nx ? nx.sid : null; }
+    if (act === 'remove'){
+      // L'article reste coché dans la liste, il n'est simplement pas rangé cette fois-ci
+      const k = rv.items.indexOf(r);
+      mutate(() => { const it = S.shoppingList.find(i => i.id === r.sid); if (it) it.checked = false; });
+      rv.items.splice(k, 1); if (rv.open === r.sid) rv.open = null;
+      toast(`${r.name} remis dans « À acheter »`);
+    }
+    saveReview(); renderReview();
+    if (act === 'toggle' || act === 'next'){ const el = document.querySelector(`[data-rid="${rv.open}"]`); if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
+  });
+  $('#rv-body').addEventListener('change', async e => {
+    const el = e.target.closest('[data-rvf]'); if (!el) return;
+    const r = getRv(el); if (!r) return;
+    if (el.dataset.rvf === 'category'){
+      r.category = el.value;
+      r.subcategory = rayonsOf(r.category).includes(r.subcategory) ? r.subcategory : guessRayon(r.name, r.category);
+    } else if (el.value === '__new'){
+      const name = await askNewRayon(r.category); if (name) r.subcategory = name;
+    } else r.subcategory = el.value;
+    saveReview(); renderReview();
+  });
 
   // Dialogue
   $('#dlg-form').addEventListener('submit', e => {
@@ -1700,6 +1824,7 @@ function bindEvents(){
 // Démarrage
 // ============================================================
 readLocal();
+loadReview();
 bindEvents();
 setView('stock');
 renderAll();
